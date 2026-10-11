@@ -9,7 +9,7 @@
 // Python engine sources); this file re-exports them and keeps the logic
 // tables that mirror series_nodes.py.
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB }
-    from "./perfectlab_libraries.js?v=1.0.1";
+    from "./perfectlab_libraries.js?v=1.0.2";
 export { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB };
 
 export const ARC_LIB = {
@@ -57,6 +57,9 @@ export const FRAMING_TEXTS = {
     "cowboy shot": "cowboy shot, from mid-thigh up, realistic head-to-body proportions, clear space around the figure",
     "full body shot": "full body shot, entire figure visible head to toe, realistic head-to-body proportions with a proportionally small head",
     "wide shot": "environmental wide establishing shot, the figure small in the middle ground, ample negative space, realistic proportions",
+    "mirror shot": "mirror shot, the subject facing her own reflection, both the face and its mirror image in frame",
+    "top-down flat lay": "top-down flat lay, the camera directly overhead, the subject and props arranged on the surface below",
+    "extreme wide establishing shot": "extreme wide establishing shot, the figure a distant small element in the environment, ample negative space",
 };
 export const framingText = (f) => FRAMING_TEXTS[f] || f;
 // floor-level macro for shoe focus on a close framing -- mirrors MACRO_SHOES
@@ -543,7 +546,8 @@ export const composeLook = (l) => {
     const headwear = slotVal(l.headwear);
     const acc = Array.isArray(l.accessories) ? l.accessories : (l.accessories || "").trim() ? [l.accessories] : [];
     const accClean = acc.map(a => (a || "").trim()).filter(a => a && !NONE_SET.includes(a.toLowerCase()));
-    if (!top && !bottom && !shoes && !headwear && !accClean.length) return "";
+    const ling = slotVal(l.lingerie), lingColor = slotVal(l.lingerie_color), lingMat = slotVal(l.lingerie_material);
+    if (!top && !bottom && !shoes && !headwear && !accClean.length && !ling) return "";
     const tail = [];
     let t = "";
     if (top || bottom) {
@@ -552,6 +556,9 @@ export const composeLook = (l) => {
             : `wearing ${lkPiece(top || bottom, slotVal(top ? l.top_color : l.bottom_color), slotVal(top ? l.top_material : l.bottom_material))}`;
         const outer = slotVal(l.outerwear);
         if (outer) t += `, layered with ${outer}`;
+    } else if (ling) {
+        // the set is the whole outfit -- mirrors compose_look
+        t = `wearing ${lkPiece(ling, lingColor, lingMat)}`;
     }
     if (shoes) tail.push(lkPiece(shoes, slotVal(l.footwear_color), slotVal(l.footwear_material)));
     if (accClean.length) {

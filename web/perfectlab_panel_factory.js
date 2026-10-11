@@ -1,5 +1,23 @@
 // Shared panel kit: favourites, multi-select, presets, uniform tiles and
 // height fitting -- one implementation used by every PerfectLab sub-node.
+import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.2";
+
+// mirrors the panel: the caption translates, the value stays English
+const RU_KIT = {
+    "attach / replace a photo tile (240×240)": "прикрепить / заменить плитку (240×240)",
+    "remove from the library": "убрать из библиотеки", "favourite": "в избранное",
+    "ALL": "ВСЕ", "◇ all": "◇ все", "＋ custom…": "＋ своё…", "walk all": "пройти все",
+    "SAVE": "СОХР", "LOAD": "ЗАГР", "presets…": "пресеты…", "Preset name:": "Имя пресета:",
+    "click to use": "нажмите, чтобы применить",
+};
+const isRu = () => (localStorage.getItem("perfectlab_lang") || "ru") === "ru";
+const trk = (t) => (isRu() && RU_KIT[t]) ? RU_KIT[t] : t;
+const disp = (v) => {
+    const t = String(v ?? "");
+    if ((localStorage.getItem("perfectlab_lang") || "ru") === "ru" && RU_DISPLAY[t])
+        return RU_DISPLAY[t];
+    return t.replace(/^(a|an|the) /i, "");
+};
 
 const FAV_KEY = "pl_panel_favs";
 export const readFavs = () => {
@@ -48,17 +66,17 @@ export function libLoad(scope) {
 // endpoint as the fallback -- the panel only ever runs with our Python
 // loaded, so the fallback is always there
 const PL_UD = "/api/perfectlab/userdata";
-const plRead = (file) =>
+export const plRead = (file) =>
     fetch(`/api/userdata/${file}`)
         .then(r => r.ok ? r.text() : Promise.reject(r))
         .catch(() => fetch(`${PL_UD}?file=${encodeURIComponent(file)}`)
             .then(r => r.ok ? r.text() : Promise.reject(r)));
-const plWrite = (file, body) =>
+export const plWrite = (file, body) =>
     fetch(`/api/userdata/${file}`, { method: "POST", body })
         .then(r => (r.ok && r.status !== 405) ? r : Promise.reject(r))
         .catch(() => fetch(`${PL_UD}?file=${encodeURIComponent(file)}`,
             { method: "POST", body }));
-const plDrop = (file) =>
+export const plDrop = (file) =>
     fetch(`/api/userdata/${file}`, { method: "DELETE" })
         .then(r => (r.ok || r.status === 404) ? r : Promise.reject(r))
         .catch(() => fetch(`${PL_UD}?file=${encodeURIComponent(file)}`,
@@ -124,7 +142,7 @@ export const libTile = (scope, entry) => {
 const CAM_SVG = `<svg viewBox="0 0 16 12" width="9" height="7"><rect x="0.8" y="0.8" width="14.4" height="10.4" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 8.2 6.2 5l2.3 2.5L10.4 6l2.1 3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="11.3" cy="4.1" r=".9" fill="currentColor"/></svg>`;
 
 export const libCam = (entry) =>
-    `<button class="plp-lib-cam" data-libimg="${esc(entry)}" title="attach / replace a photo tile (240×240)">${CAM_SVG}</button>`;
+    `<button class="plp-lib-cam" data-libimg="${esc(entry)}" title="${trk("attach / replace a photo tile (240×240)")}">${CAM_SVG}</button>`;
 
 export function pickLibImg(scope, entry, rerender) {
     const input = document.createElement("input");
@@ -162,14 +180,14 @@ export const libChips = (scope, { imgs, cell, act, skip, limit = 18 } = {}) => {
     const entries = libList(scope).filter(o => !(skip || []).includes(o));
     if (!entries.length) return "";
     libSeen.add(scope);
-    return `<div class="plp-chips-head">YOUR PIECES — typed in this slot before, kept on this machine. 📷 attach a photo, 🎬 shoot one through your graph. Click to use, ✕ to remove.</div>` +
+    return `<div class="plp-chips-head">ВАШИ ВЕЩИ — напечатанные в этом слоте, хранятся на этой машине. 📷 приложить фото, 🎬 снять через ваш граф. Клик — использовать, ✕ — убрать.</div>` +
         `<div class="plp-chips ${imgs ? "has-img" : ""}" style="--cell:${cell || "1 / 1"}">` +
         entries.slice(0, limit).map(o =>
-            `<div class="plp-chip imgchip lib ${act && act(o) ? "act" : ""}" data-lib="${esc(o)}" title="${esc(o)} — click to use">
+            `<div class="plp-chip imgchip lib ${act && act(o) ? "act" : ""}" data-lib="${esc(o)}" title="${esc(o)} — ${trk("click to use")}">
                 ${libTile(scope, o)}
-                <span>${esc(o)}</span>
+                <span>${esc(disp(o))}</span>
                 ${libCam(o)}
-                <button class="plp-lib-x" data-libx="${esc(o)}" title="remove from the library">✕</button>
+                <button class="plp-lib-x" data-libx="${esc(o)}" title="${trk("remove from the library")}">✕</button>
             </div>`).join("") + `</div>`;
 };
 
@@ -208,7 +226,7 @@ export const libSync = (scope, host, rerender) => {
     });
 };
 
-const GUIDE_V = "1.0.1";
+const GUIDE_V = "1.0.2";
 export const itemImg = (cat, i) =>
     `extensions/PerfectLab/guide/items/${cat}/${String(i).padStart(2, "0")}.jpg?v=${GUIDE_V}`;
 
@@ -235,13 +253,13 @@ export const chipGrid = ({ options, base, imgs, cell, sel, scope, multi, search,
     if (favs.length) {
         rows.push(`<div class="plp-chips has-img" style="--cell:${cell}">` +
             favs.map(i => chip(options[i], i, options, imgs, sel, scope, multi)).join("") +
-            `</div><div class="plp-chips-head">ALL</div>`);
+            `</div><div class="plp-chips-head">${trk("ALL")}</div>`);
     }
     if (lib) rows.push(libChips(lib, { skip: options }));
     rows.push(`<div class="plp-chips has-img" style="--cell:${cell}">
-        <div class="plp-chip walk ${sel.mode === "all" ? "act" : ""}" data-mode="all">◇ all</div>
+        <div class="plp-chip walk ${sel.mode === "all" ? "act" : ""}" data-mode="all">${trk("◇ all")}</div>
         ${options.map((o, i) => chip(o, i, options, imgs, sel, scope, multi, i < builtins ? null : lib)).join("")}
-        <div class="plp-chip walk" data-add>＋ custom…</div>
+        <div class="plp-chip walk" data-add>${trk("＋ custom…")}</div>
     </div>`);
     return rows.join("");
 };
@@ -250,10 +268,10 @@ const chip = (o, i, options, imgs, sel, scope, multi, lib) => {
     const act = sel.mode === "pin"
         ? sel.pin % options.length === i
         : (sel.set || []).includes(i);
-    const star = `<button class="plp-star ${isFav(scope, i) ? "on" : ""}" data-fav="${i}" title="favourite">★</button>`;
-    return `<div class="plp-chip imgchip ${act ? "act" : ""}" data-i="${i}" title="${esc(o)}">
+    const star = `<button class="plp-star ${isFav(scope, i) ? "on" : ""}" data-fav="${i}" title="${trk("favourite")}">★</button>`;
+    return `<div class="plp-chip imgchip ${act ? "act" : ""}" data-i="${i}" title="${esc(disp(o))}">
         ${lib ? libTile(lib, o) + libCam(o) : tile(o, imgs, i)}
-        <span>${esc(o)}</span>
+        <span>${esc(disp(o))}</span>
         ${multi ? `<span class="plp-multi ${act ? "" : "dim"}">${act ? "✓" : "+"}</span>` : ""}
         ${star}
     </div>`;
@@ -268,7 +286,7 @@ export const sectionSummary = (label, options, sel, customs) => {
     if (sel.mode === "multi" && (sel.set || []).length) {
         return sel.set.length + " selected";
     }
-    return "walk all " + items.length;
+    return (isRu() ? "пройти все " : "walk all ") + items.length;
 };
 
 /** userdata-backed presets row: save / load / delete under a node name */
@@ -277,24 +295,28 @@ export const attachPresets = (node, el, widgetName, presetName) => {
     const row = document.createElement("div");
     row.className = "plp-util";
     row.innerHTML = `
-        <button class="plp-util-btn" data-act="psave">SAVE</button>
-        <button class="plp-util-btn" data-act="pload">LOAD</button>
-        <select class="plp-sessions"><option value="">presets…</option></select>
+        <button class="plp-util-btn" data-act="psave">${trk("SAVE")}</button>
+        <button class="plp-util-btn" data-act="pload">${trk("LOAD")}</button>
+        <select class="plp-sessions"><option value="">${trk("presets…")}</option></select>
         <button class="plp-util-btn" data-act="pdel">✕</button>`;
     row.addEventListener("mousedown", e => e.stopPropagation());
     const sel = row.querySelector("select");
     const list = async () => {
         try {
             const d = await (await fetch(`/api/userdata?dir=${UD}&recurse=false&split=false&full_info=false`)).json();
-            const mine = (d.tracks || []).filter(t => t.startsWith(presetName + "__"));
-            sel.innerHTML = '<option value="">presets…</option>' +
+            // the listing is a plain array of names; older builds wrap it in
+            // {tracks|files} -- accept every shape the API has ever served
+            const names = (Array.isArray(d) ? d : (d.tracks || d.files || []))
+                .filter(t => typeof t === "string");
+            const mine = names.filter(t => t.startsWith(presetName + "__"));
+            sel.innerHTML = '<option value="">' + trk("presets…") + '</option>' +
                 mine.map(t => `<option value="${t}">${t.replace(presetName + "__", "").replace(/\.json$/, "")}</option>`).join("");
         } catch (e) {}
     };
     const dataWidget = node.widgets.find(w => w.name === widgetName);
     row.querySelector('[data-act="psave"]').onclick = async (e) => {
         e.stopPropagation();
-        const name = prompt("Preset name:", "");
+        const name = prompt(trk("Preset name:"), "");
         if (!name) return;
         await plWrite(`${UD}/${presetName}__${encodeURIComponent(name)}.json`, dataWidget?.value || "{}");
         list();

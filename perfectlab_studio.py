@@ -84,6 +84,14 @@ def compose_slots(config, count, seed):
         state = _section(config, key)
         if state is not None:
             text = builder().build(json.dumps(state, ensure_ascii=False))[0]
+            # props ride the scene line: "the setting is X, with a bouquet"
+            if key == "scene":
+                props = [str(x).strip() for x in (state.get("props") or [])
+                         if str(x).strip()]
+                if props:
+                    clause = (props[0] if len(props) == 1
+                              else ", ".join(props[:-1]) + " and " + props[-1])
+                    text = (text + ", with " + clause).strip() if text else "with " + clause
             if text:
                 slots[key] = text
 
@@ -109,10 +117,17 @@ def compose_slots(config, count, seed):
         slots["focus"] = focus
         slots["formats"] = formats
         lens = (camera.get("lens") or "").strip()
-        if lens:
-            slots["style"] = ((slots.get("style") or "") + ", " + lens).strip(", ")
+        composition = (camera.get("composition") or "").strip()
+        for line in (lens, composition):
+            if line:
+                slots["style"] = ((slots.get("style") or "") + ", " + line).strip(", ")
 
     return slots
+
+# SDXL tags carry no leading articles: strip one off the start of every
+# comma segment (and after a "with" bridge), the user's own lines untouched
+_TAG_ARTICLE_RE = re.compile(
+    r"(?i)(^|,\s*|\)\s+|\blayered with\s+|\bwith\s+)(a|an|the)\s+")
 
 
 def _run_session(config, count, seed, shot_pick):
@@ -135,7 +150,9 @@ def _run_session(config, count, seed, shot_pick):
         exprs_l = list(slots.get("expressions") or [])
         frams_l = list(slots.get("framings") or [])
         focus_l = list(slots.get("focus") or [])
-        fmts_l = list(slots.get("formats") or [])
+        # "follows framing" is not a ratio: drop it and let the framing's
+        # tier size the frame, exactly as the natural mode does
+        fmts_l = [f for f in (slots.get("formats") or []) if f != "follows framing"]
         pick = lambda seq, i: str(seq[i % len(seq)]).strip() if seq else ""
         main = (shot.get("main_prompt") or "").strip()
         custom = (shot.get("custom") or "").strip()
@@ -147,6 +164,8 @@ def _run_session(config, count, seed, shot_pick):
                      pick(poses_l, i), pick(exprs_l, i), pick(frams_l, i), pick(focus_l, i)]
             prompt = ", ".join(str(x).strip().replace("the setting is ", "")
                                for x in parts if x and str(x).strip())
+            # tags read cleaner without a leading article on each segment
+            prompt = _TAG_ARTICLE_RE.sub(r"\1", prompt)
             if main:
                 prompt = f"{main}, {prompt}"
             if custom:
@@ -159,7 +178,7 @@ def _run_session(config, count, seed, shot_pick):
                 w, h = _ratio_size(TIER_RATIOS[tier])
             widths.append(w)
             heights.append(h)
-            seeds.append((int(seed) + i) % (1 << 64))
+            seeds.append(int(seed) if session.get("fixed_seed") else (int(seed) + i) % (1 << 64))
             metas.append({"node": "studio", "mode": "sdxl tags", "shot": i + 1})
         return prompts, widths, heights, seeds, metas
     prompts, widths, heights, seeds, metas = PerfectLabSeries().process(
@@ -174,6 +193,7 @@ def _run_session(config, count, seed, shot_pick):
         bool(session.get("place_arc")),
         bool(session.get("crop_arc")),
         bool(session.get("focus_arc")),
+        bool(session.get("fixed_seed")),
         person=slots.get("person"), persona_data=slots.get("persona_data"),
         wardrobe=slots.get("wardrobe"), scene=slots.get("scene"),
         light=slots.get("light"), style=slots.get("style"),
@@ -200,27 +220,62 @@ _WC_RE = re.compile(r"__([A-Za-z0-9_-]+)__")
 
 # wildcard files: __name__ in any text pulls a line from
 # web/wildcards/name.txt next to the engine; re-read when the file changes
-_WC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "wildcards")
+_WC_PKG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "wildcards")
+
+
+def _user_wildcards_dir():
+    """the user's own wildcard folder -- the panel's wildcard manager writes
+    here, so personal files survive node updates. Older builds nest it under
+    userdata/."""
+    cands = []
+    try:
+        import folder_paths
+        root = folder_paths.get_user_directory()
+        cands += [os.path.join(root, "default", "userdata", "perfectlab_wildcards"),
+                  os.path.join(root, "default", "perfectlab_wildcards")]
+    except Exception:
+        pass
+    here = os.path.dirname(os.path.realpath(__file__))
+    for _ in range(5):
+        here = os.path.dirname(here)
+        for cand in ("user/default/userdata", "user/default"):
+            cands.append(os.path.join(here, cand, "perfectlab_wildcards"))
+    for d in cands:
+        if os.path.isdir(d):
+            return d
+    return cands[0] if cands else None
 _WC_CACHE = {}  # name -> (mtime, lines)
 
 
 def _wc_lines(name):
-    path = os.path.join(_WC_DIR, name + ".txt")
-    try:
-        mtime = os.path.getmtime(path)
-    except OSError:
+    """a wildcard's lines: the user's own file (the panel's manager) wins,
+    the bundled starters ride with the package. Comments skip, re-read on
+    change."""
+    safe = re.sub(r"[^A-Za-z0-9_\-]", "", name)
+    if not safe:
         return None
-    cached = _WC_CACHE.get(name)
-    if cached and cached[0] == mtime:
-        return cached[1]
-    try:
-        with open(path, encoding="utf-8") as f:
-            lines = [l.strip() for l in f
-                     if l.strip() and not l.strip().startswith("#")]
-    except OSError:
-        return None
-    _WC_CACHE[name] = (mtime, lines)
-    return lines
+    paths = []
+    ud = _user_wildcards_dir()
+    if ud:
+        paths.append(os.path.join(ud, safe + ".txt"))
+    paths.append(os.path.join(_WC_PKG_DIR, safe + ".txt"))
+    for path in paths:
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            continue
+        cached = _WC_CACHE.get(path)
+        if cached and cached[0] == mtime:
+            return cached[1]
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = [l.strip() for l in f
+                         if l.strip() and not l.strip().startswith("#")]
+        except OSError:
+            continue
+        _WC_CACHE[path] = (mtime, lines)
+        return lines
+    return None
 
 
 def resolve_wildcards(text, seed):
@@ -323,6 +378,25 @@ class PerfectLabStudio:
             (config.get("session") or {}).get("count", 6) or 6)
         prompts, widths, heights, seeds, metas = _run_session(
             config, count, int(seed), -1)
+        shot_pick = -1
+        if not single:
+            # the dock's "re-shoot this frame" rides in as a 1-based frame
+            # number (0 = off): map it to the shot that frame belongs to,
+            # then re-render that one shot as a fresh take (a bumped seed
+            # keeps the setup's identity but re-rolls its randomness)
+            rs = (config.get("session") or {}).get("reshoot_shot")
+            try:
+                rs = int(rs)
+            except (TypeError, ValueError):
+                rs = 0
+            if 1 <= rs <= len(metas):
+                frame = metas[rs - 1]
+                shot_pick = max(0, int(frame.get("shot") or rs) - 1)
+                seed = (int(frame.get("seed", int(seed))) + 1) % (1 << 64)
+                prompts, widths, heights, seeds, metas = _run_session(
+                    config, count, int(seed), shot_pick)
+                for meta in metas:
+                    meta["reshoot"] = True
         for meta in metas:
             meta["node"] = "studio"
             meta["mode"] = mode

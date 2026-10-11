@@ -41,7 +41,13 @@ TOPS = [
     "a mock-neck top",
     "a crop top with a chest cutout",
     "a boxy cropped blazer",
-]
+    # new families -- swim, sport, sleep, evening
+    "a bomber jacket", "a denim jacket", "a plain white tee", "an off-shoulder top",
+    "a one-piece swimsuit", "a sports bra top", "a silk pyjama set",
+    "an evening gown", "a tailored suit",
+    # everyday and statement tops
+    "a ribbed tank top", "an oversized plain hoodie", "a pinstripe waistcoat",
+    "a halter neck top", "a cable-knit turtleneck sweater", "a satin camisole"]
 
 BOTTOMS = [
     "low-rise baggy sweatpants",
@@ -63,7 +69,11 @@ BOTTOMS = [
     "high-waisted flared yoga pants",
     "flared jeans",
     "low-slung black trousers",
-]
+    "leggings", "leather pants", "a denim mini skirt", "bermuda shorts",
+    "swim shorts", "running shorts", "a cocktail dress",
+    # everyday bottoms
+    "a leather midi skirt", "a tennis skort", "wide-leg linen trousers",
+    "a frayed denim mini skirt", "utility cargo joggers", "high-rise skinny jeans"]
 
 FOOTWEAR = [
     "chunky sneakers", "slim stiletto heels", "classic pumps",
@@ -72,7 +82,9 @@ FOOTWEAR = [
     "retro skate sneakers", "black ballet flats", "worn cowboy boots",
     "mary janes", "kitten heels", "hiking boots", "pool slides",
     "chunky platform moon boots", "fur leg warmers over platform boots",
-]
+    "loafers", "Chelsea boots", "platform sneakers", "mules",
+    "slingback heels", "chunky rain boots", "men's leather derby shoes",
+    "espadrilles", "square-toe boots", "glitter party heels"]
 
 COLORS = ["jet black", "off-white", "charcoal gray", "glossy red", "chrome silver",
           "champagne gold", "pastel pink", "warm beige", "navy blue", "olive green",
@@ -89,8 +101,19 @@ ACCESSORIES = ["thin choker", "layered necklaces", "hoop earrings",
                "pearl drop earrings", "a glasses chain", "a waist chain",
                "a chunky metal cuff",
                "an oversized wool scarf", "fuzzy white earmuffs",
-               "a slim necktie", "a leather garter strap"]
+               "a slim necktie", "a leather garter strap",
+    "a silk hair ribbon", "a statement necklace", "a pearl choker",
+    "an ear cuff", "a chain belt", "a vintage brooch",
+    "cat-eye glasses", "a wrist corsage"]
 
+
+LINGERIE = [
+    "a lace bralette and briefs set", "a silk slip nightgown",
+    "a satin pyjama short set", "a lace bodysuit",
+    "a strappy lace bralette", "a silk robe over a lace set",
+    "a mesh babydoll set", "a high-waisted lace briefs set",
+    "a velvet lingerie set", "a sporty bralette set",
+]
 
 NONE_PLACEHOLDERS = {"— none —", "- none -", "none"}
 
@@ -99,8 +122,9 @@ def compose_look(look):
     """One clothing paragraph out of slotted look dict.
 
     Slots: top, top_color, outerwear, bottom, bottom_color, footwear,
-    accessories, details. A literal "none" placeholder in any slot reads
-    as an empty slot."""
+    accessories, details, lingerie. A literal "none" placeholder in any
+    slot reads as an empty slot. Lingerie is the garment when top and
+    bottom are empty -- covered by them otherwise."""
     slot = lambda key: "" if (look.get(key) or "").strip().lower() in NONE_PLACEHOLDERS \
         else (look.get(key) or "").strip()
     top = slot("top")
@@ -114,13 +138,16 @@ def compose_look(look):
     headwear_color = slot("headwear_color")
     acc_color = slot("acc_color")
     shoes = slot("footwear")
+    lingerie = slot("lingerie")
+    lingerie_color = slot("lingerie_color")
+    lingerie_material = slot("lingerie_material")
     acc = look.get("accessories") or []
     if isinstance(acc, str):
         acc = [acc] if acc.strip() else []
     acc = [a.strip() for a in acc if a.strip() and a.strip().lower() not in NONE_PLACEHOLDERS]
     # a look may be footwear- or headwear- or accessories-only (a shoes
     # catalog tile, a hat close-up) -- the tail carries those on its own
-    if not top and not bottom and not shoes and not headwear and not acc:
+    if not top and not bottom and not shoes and not headwear and not acc             and not lingerie:
         return ""
     piece = lambda name, color, material: " ".join(
         p for p in ((material + " " + name[2:].strip()) if material and name[:2].lower() in ("a ", "an") and name.lower().startswith(("a ", "an "))
@@ -135,6 +162,9 @@ def compose_look(look):
             body = f"wearing {piece(bottom, bottom_color, bottom_material)}"
         if outer:
             body += f", layered with {outer}"
+    elif lingerie:
+        # the set is the whole outfit
+        body = f"wearing {piece(lingerie, lingerie_color, lingerie_material)}"
     else:
         body = ""
     tail = []

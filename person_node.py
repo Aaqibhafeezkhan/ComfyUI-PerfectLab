@@ -21,7 +21,10 @@ HAIR = ["long platinum waves", "sleek high ponytail", "messy bun with loose stra
         "long straight hair with a middle part", "shaggy layered hair",
         "voluminous blowout", "low chignon", "bubble braids", "crimped hair",
         "wavy lob", "top knot", "fishtail braid", "wolf cut", "side-swept curls",
-        "pixie cut"]
+        "pixie cut",
+    # afro-textured and modern
+    "an afro", "box braids", "cornrows", "locs",
+    "a buzz cut", "a french twist"]
 
 # orthogonal fields -- key, label, options, multi, block it lands in
 FIELDS = [
@@ -42,7 +45,8 @@ FIELDS = [
     {"key": "hair_color", "label": "Hair color", "options": ["platinum blond", "honey blonde",
         "chestnut brown", "jet black", "copper red", "silver gray", "pastel pink",
         "dirty blonde with dark roots", "ash brown", "auburn", "blue-black",
-        "silver-lavender", "copper highlights", "two-tone ombre"], "multi": False},
+        "silver-lavender", "copper highlights", "two-tone ombre",
+        "money piece highlights", "strawberry blonde"], "multi": False},
     {"key": "eyes", "label": "Eyes", "options": ["pale blue eyes", "deep brown eyes",
         "emerald green eyes", "gray eyes", "amber eyes", "heterochromia",
         "violet eyes", "hazel eyes", "very dark brown eyes", "grey-blue eyes"], "multi": False},
@@ -53,22 +57,35 @@ FIELDS = [
         "glossy pink lips", "bold red lipstick", "matte nude lips", "dark plum lipstick",
         "coral orange lips", "black gothic lipstick", "glazed cherry lips",
         "aubergine lipstick", "peach gloss lips", "berry stained lips",
-        "a no-makeup natural look"], "multi": True},
+        "a no-makeup natural look",
+        # blush zone + trend wave
+        "dewy blush on the cheeks", "sun-kissed blush",
+        "sculpted contour with highlight", "cold girl makeup with frosted blush",
+        "siren eyes eyeliner", "glass skin glow"], "multi": True},
     {"key": "skin", "label": "Skin", "options": ["porcelain skin", "sun-kissed skin",
         "olive skin", "deep tan skin", "freckled skin", "deep ebony skin",
-        "golden brown skin", "cool ivory skin"], "multi": False},
+        "golden brown skin", "cool ivory skin",
+        "beach tan lines", "body oil glow"], "multi": False},
     {"key": "signature", "label": "Signature", "options": ["a tiny beauty mark under one eye",
         "a thin gold nose ring", "an old scar over the left brow", "stacked thin bracelets",
         "a single pearl necklace", "round wire-frame glasses",
         "a small wrist tattoo", "a tiny nose stud", "a dimple in the left cheek",
         "a beauty mark above the lip", "a slit in the left eyebrow",
-        "a bold signet ring on the index finger"], "multi": True},
+        "a bold signet ring on the index finger",
+        "a gap tooth", "a freckle constellation across the nose",
+        "a full tattoo sleeve on one arm"], "multi": True},
+
+    {"key": "nails", "label": "Nails", "options": [
+        "French tip manicure", "glossy red nails", "almond nude nails",
+        "black square-cut nails", "chrome nails", "pearl accent nails",
+        "milk-bath nails", "short natural nails"], "multi": False},
 ]
 
 FIELD_BLOCK = {
     "gender": "identity", "age": "identity", "figure": "figure",
     "hair": "hair", "hair_color": "hair", "eyes": "face", "makeup": "face",
     "skin": "skin", "signature": "signature",
+    "nails": "signature",
 }
 BLOCK_ORDER = ["identity", "figure", "hair", "face", "skin", "signature"]
 FACE_BLOCKS = {"hair", "face", "skin"}

@@ -68,6 +68,9 @@ TIERS = {
     "dutch-angle shot": "medium",
     "full body shot": "figure",
     "wide shot": "figure",
+    "mirror shot": "medium",
+    "top-down flat lay": "medium",
+    "extreme wide establishing shot": "figure",
 }
 
 RATIOS = {
@@ -78,6 +81,8 @@ RATIOS = {
     "9:16": 0.5625,
     "3:2": 1.5,
     "16:9": 16.0 / 9.0,
+    "21:9": 21.0 / 9.0,
+    "65:24": 65.0 / 24.0,
 }
 
 TIER_RATIOS = {
@@ -93,7 +98,7 @@ TIER_RATIOS = {
 TIER_FORMATS = {
     "close": ("1:1", "4:5", "3:4", "2:3"),
     "medium": ("4:5", "3:4", "2:3", "1:1"),
-    "figure": ("2:3", "3:4", "9:16", "4:5", "16:9"),
+    "figure": ("2:3", "3:4", "9:16", "4:5", "16:9", "21:9", "65:24"),
 }
 
 PIXEL_BUDGET = 1_572_864  # ~1.5 MP; width/height are scaled to fit this area
@@ -149,6 +154,13 @@ FRAMING_TEXTS = {
                        "realistic head-to-body proportions with a proportionally small head"),
     "wide shot": ("environmental wide establishing shot, the figure small in the "
                   "middle ground, ample negative space, realistic proportions"),
+    "mirror shot": ("mirror shot, the subject facing her own reflection, both "
+                    "the face and its mirror image in frame"),
+    "top-down flat lay": ("top-down flat lay, the camera directly overhead, "
+                          "the subject and props arranged on the surface below"),
+    "extreme wide establishing shot": ("extreme wide establishing shot, the "
+                                       "figure a distant small element in the "
+                                       "environment, ample negative space"),
 }
 
 # focus points that name the face. Invisible on a wide shot, yet they still
@@ -313,17 +325,16 @@ _TONE_KEY_OK = re.compile(r"[a-z ]+")
 _TONE_CACHE = {"mtime": None, "table": None, "re": None}
 
 
+def _user_override_path(name):
+    """the current user's override file -- the one resolver shared with
+    the arc tables in shoot_nodes"""
+    from .shoot_nodes import _user_override_path as _resolve
+    return _resolve(name)
+
+
 def _user_tone_path():
-    """the current user's perfectlab_tone.json, walking up to the ComfyUI
-    userdata tree the same way the panel's /userdata fetches resolve"""
-    here = os.path.dirname(os.path.realpath(__file__))
-    for _ in range(5):
-        here = os.path.dirname(here)
-        for cand in ("user/default/userdata", "userdata"):
-            d = os.path.join(here, cand)
-            if os.path.isdir(d):
-                return os.path.join(d, "perfectlab_tone.json")
-    return None
+    """the current user's perfectlab_tone.json"""
+    return _user_override_path("perfectlab_tone.json")
 
 
 def _tone_tables():
@@ -370,16 +381,8 @@ _ENERGY_CACHE = {"mtime": None, "poses": None, "placements": None, "framings": N
 
 
 def _user_energy_path():
-    """the current user's perfectlab_energy.json, walking up to the ComfyUI
-    userdata tree the same way the panel's /userdata fetches resolve"""
-    here = os.path.dirname(os.path.realpath(__file__))
-    for _ in range(5):
-        here = os.path.dirname(here)
-        for cand in ("user/default/userdata", "userdata"):
-            d = os.path.join(here, cand)
-            if os.path.isdir(d):
-                return os.path.join(d, "perfectlab_energy.json")
-    return None
+    """the current user's perfectlab_energy.json"""
+    return _user_override_path("perfectlab_energy.json")
 
 
 def _energy_tables():
@@ -563,9 +566,14 @@ def _pose_for_level(poses_l, pose, lvl, i):
 TEMPLATE_KEYS = ("person", "scene", "style", "framing", "focus", "pose",
                  "placement", "expression", "lighting", "outfit", "quality")
 
-DEFAULT_TEMPLATE = ("{framing}, focused on {focus}. {expression}. {style}. "
-                    "{scene} {person}, {pose}, wearing {outfit}, {placement}. "
-                    "{lighting}. {quality}")
+# token order per the encoder's own behaviour: the colour treatment must be
+# read before any colour word in the person block, a mood only shows when it
+# stands early, and the camera line sets the distance before the scene
+DEFAULT_TEMPLATE = ("{style}. {expression}. "
+                    "{framing}, focused on {focus}. "
+                    "{scene}. {lighting}. "
+                    "{person}, {pose}, wearing {outfit}, {placement}. "
+                    "{quality}")
 
 
 def _ratio_size(name):
@@ -621,10 +629,17 @@ def _person_for_shot(blocks, tier, focus, pose):
     if not blocks:
         return None
     back = "back to the camera" in pose
-    if back:
+    # macro isolation: a feet macro keeps the identity and skin, a hands
+    # macro keeps the nails (they ride signature) -- facial and hair tokens
+    # pull the composition onto the head from a floor-level frame
+    if focus == "the shoes":
+        keys = ["identity", "skin"]
+    elif focus in ("the hands", "the jewelry", "the fabric texture"):
+        keys = ["identity", "skin", "signature"]
+    elif back:
         keys = ["identity", "figure", "hair"]
     elif tier == "close":
-        keys = ["identity"] if focus == "the shoes" else ["identity", "hair", "face", "skin", "signature"]
+        keys = ["identity", "hair", "face", "skin", "signature"]
     elif tier == "medium":
         keys = ["identity", "figure", "hair", "face", "signature"]
     else:
@@ -707,13 +722,13 @@ class PerfectLabSeries:
     CATEGORY = "PerfectLab"
     DESCRIPTION = "The connector. Owns the session -- count, seed, template, quality, a token guard and the takes-per-shot setting -- and nothing else: every creative slot is a wire to a sub-node (Persona, Wardrobe, Scene, Light, Style, Pose, Expression, Camera). Wardrobe looks walk in blocks; the framing walk restarts per look; several wired personas alternate with the blocks. The arc's energy bends the whole session when ARC LEVEL is wired: light tone, poses, placements, the crop, the focus itself, and -- with takes_arc on -- the take budget: quiet shots render once, climaxes get every take to pick from. Live progress, the last run's results and per-shot META are built in. Press START SHOOT to queue the session."
 
-    def process(self, count, seed, template, quality_line, token_limit="512", look_rotation="blocks", auto_trim=True, shot_pick=-1, takes=1, takes_arc=False, mood_subject=False, pose_arc=False, place_arc=False, crop_arc=False, focus_arc=False,
+    def process(self, count, seed, template, quality_line, token_limit="512", look_rotation="blocks", auto_trim=True, shot_pick=-1, takes=1, takes_arc=False, mood_subject=False, pose_arc=False, place_arc=False, crop_arc=False, focus_arc=False, fixed_seed=False,
                 person=None, persona_data=None, wardrobe=None, scene=None,
                 light=None, style=None, poses=None, expressions=None,
                 arc_level=None, framings=None, focus=None, formats=None):
         unwrap = lambda v: v[0] if isinstance(v, list) and v else v
-        count, seed, template, quality_line, token_limit, look_rotation, auto_trim, shot_pick, takes, takes_arc, mood_subject, pose_arc, place_arc, crop_arc, focus_arc = map(
-            unwrap, (count, seed, template, quality_line, token_limit, look_rotation, auto_trim, shot_pick, takes, takes_arc, mood_subject, pose_arc, place_arc, crop_arc, focus_arc))
+        count, seed, template, quality_line, token_limit, look_rotation, auto_trim, shot_pick, takes, takes_arc, mood_subject, pose_arc, place_arc, crop_arc, focus_arc, fixed_seed = map(
+            unwrap, (count, seed, template, quality_line, token_limit, look_rotation, auto_trim, shot_pick, takes, takes_arc, mood_subject, pose_arc, place_arc, crop_arc, focus_arc, fixed_seed))
         count = max(1, min(100, int(count)))
         takes = max(1, min(4, int(takes or 1)))
         persons = _lines(person)
@@ -927,7 +942,9 @@ class PerfectLabSeries:
             # light tone reads decide how many drafts this shot gets
             arc_takes = bool(takes_arc) and takes > 1 and lvl is not None
             t_count = _takes_for_level(lvl, takes) if arc_takes else takes
-            shot_seed = (int(seed) + i) % (1 << 64)
+            # fixed_seed: every shot rides the same noise, so the session
+            # reads as a clean A/B -- only the framings, poses and looks vary
+            shot_seed = int(seed) if fixed_seed else (int(seed) + i) % (1 << 64)
             tokens = max(1, round(len(line) / 3.6))
             limit = {"off": None, "SDXL · 75": 75, "512": 512, "1024": 1024}.get(str(token_limit[0] if isinstance(token_limit, list) and token_limit else token_limit), 512)
             # the energies behind this shot's couplings, read from the same

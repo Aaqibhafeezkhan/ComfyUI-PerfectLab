@@ -64,6 +64,12 @@ def test_trigger_leads_and_drops_face_blocks():
     assert "tiny beauty mark" in joined         # signature stays
 
 
+def test_trigger_rides_as_suffix_exactly():
+    # the LoRA-tag form the engine emits -- the panel preview mirrors it
+    blocks = compose_blocks({"trigger": "JW", "fields": {"gender": "a young woman"}})
+    assert blocks["identity"] == "a young woman (JW)"
+
+
 def test_no_trigger_keeps_face_blocks():
     blocks = compose_blocks({"fields": {"hair": "beachy curls", "eyes": "emerald green eyes"}})
     joined = ", ".join(blocks.values())

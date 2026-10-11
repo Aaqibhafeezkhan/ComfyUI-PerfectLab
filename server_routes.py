@@ -18,12 +18,21 @@ from aiohttp import web
 
 
 def add_routes(routes, user_manager):
+    def resolve(request, f, create_dir=False):
+        """user-scoped path, or None when the name escapes it. The stock
+        validator raises on cross-drive absolute names (Windows) and on
+        unknown multi-user ids -- both read as a plain rejection here."""
+        try:
+            return user_manager.get_request_user_filepath(request, f, create_dir=create_dir)
+        except (ValueError, KeyError, OSError):
+            return None
+
     @routes.get("/perfectlab/userdata")
     async def read_userdata(request):
         f = request.query.get("file", "")
         if not f:
             return web.Response(status=400, text="file query parameter required")
-        path = user_manager.get_request_user_filepath(request, f, create_dir=False)
+        path = resolve(request, f)
         if not path or not os.path.exists(path):
             return web.Response(status=404, text="not found")
         return web.FileResponse(path)
@@ -33,7 +42,7 @@ def add_routes(routes, user_manager):
         f = request.query.get("file", "")
         if not f:
             return web.Response(status=400, text="file query parameter required")
-        path = user_manager.get_request_user_filepath(request, f, create_dir=True)
+        path = resolve(request, f, create_dir=True)
         if not path:
             return web.Response(status=403, text="path rejected")
         body = await request.read()
@@ -50,7 +59,7 @@ def add_routes(routes, user_manager):
         f = request.query.get("file", "")
         if not f:
             return web.Response(status=400, text="file query parameter required")
-        path = user_manager.get_request_user_filepath(request, f, create_dir=False)
+        path = resolve(request, f)
         if path and os.path.exists(path):
             try:
                 os.remove(path)

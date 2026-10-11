@@ -14,6 +14,7 @@ the tier coupling). Each section walks or pins independently.
 import json
 import math
 import os
+import random
 
 POSES = [
     "standing relaxed",
@@ -52,6 +53,12 @@ POSES = [
     "holding a waffle cone with one hand",
     "taking a selfie at night with city lights",
     "holding a jacket open with both hands, hood up",
+    "a mirror selfie pose in a full-length mirror",
+    "chin resting on one hand",
+    "leaning on a doorframe",
+    "sitting backwards on a chair",
+    "one hand on the roof of a car",
+    "lying on a bed with one arm overhead",
 ]
 
 EXPRESSIONS = [
@@ -83,14 +90,25 @@ EXPRESSIONS = [
     "a distant melancholic stare, mouth relaxed",
     "a curious head tilt, brows raised, a small smile",
     "a steely determined look, jaw tight, eyes narrow",
+    # appended strictly at the end: the arcs' keypoint indexes count on it
+    "a sun-squint smile, cheeks scrunched",
+    "a nose scrunch grin",
+    "brows knitted in concentration",
+    "a soft awe, lips slightly parted",
+    "a teasing wink with the tongue out",
 ]
 
-FRAMINGS = ["extreme close-up", "close-up", "portrait shot", "medium shot",
-            "cowboy shot", "full body shot", "wide shot"]
+# must mirror the panel's FRAMING_LIB (the TIERS order) exactly: the panel
+# pins framings by index, so the two lists drifting shifted every pick
+FRAMINGS = ["extreme close-up", "close-up", "portrait shot", "profile shot",
+            "medium shot", "cowboy shot", "over-the-shoulder shot",
+            "low-angle shot", "high-angle shot", "dutch-angle shot",
+            "full body shot", "wide shot",
+            "mirror shot", "top-down flat lay", "extreme wide establishing shot"]
 FOCUS = ["the face", "the eyes", "the outfit", "the hands", "the full figure",
          "the silhouette", "the background mood", "the hair movement",
-         "the shoes", "the jewelry", "the profile line", "the lips"]
-FORMATS = ["follows framing", "1:1", "4:5", "3:4", "2:3", "9:16", "3:2", "16:9"]
+         "the shoes", "the jewelry", "the profile line", "the lips", "the fabric texture", "the reflection in a puddle"]
+FORMATS = ["follows framing", "1:1", "4:5", "3:4", "2:3", "9:16", "3:2", "16:9", "21:9", "65:24"]
 
 # Emotional arcs: named keypoint sequences over EXPRESSIONS indices, one
 # curve per dramaturgy -- a session that starts calm and peaks instead of a
@@ -133,17 +151,38 @@ ARC_LEVELS = {
 _ARC_CACHE = {"mtime": None, "seq": None, "lv": None}
 
 
-def _user_arcs_path():
-    """the current user's perfectlab_arcs.json, walking up to the ComfyUI
-    userdata tree the same way the panel's /userdata fetches resolve"""
+def _user_override_path(name):
+    """the current user's override file (perfectlab_arcs/energy/tone.json).
+
+    folder_paths knows the tree on every ComfyUI build; the walker covers
+    exotic roots. Older builds nest user files under userdata/, newer
+    ones sit them directly in the user folder -- an existing file wins,
+    an existing folder is the write target."""
+    cands = []
+    try:
+        import folder_paths
+        root = folder_paths.get_user_directory()
+        cands += [os.path.join(root, "default", "userdata", name),
+                  os.path.join(root, "default", name)]
+    except Exception:
+        pass
     here = os.path.dirname(os.path.realpath(__file__))
     for _ in range(5):
         here = os.path.dirname(here)
-        for cand in ("user/default/userdata", "userdata"):
-            d = os.path.join(here, cand)
-            if os.path.isdir(d):
-                return os.path.join(d, "perfectlab_arcs.json")
+        for cand in ("user/default/userdata", "user/default", "userdata"):
+            cands.append(os.path.join(here, cand, name))
+    for p in cands:
+        if os.path.isfile(p):
+            return p
+    for p in cands:
+        if os.path.isdir(os.path.dirname(p)):
+            return p
     return None
+
+
+def _user_arcs_path():
+    """the current user's perfectlab_arcs.json"""
+    return _user_override_path("perfectlab_arcs.json")
 
 
 def _arc_tables():
@@ -209,13 +248,17 @@ def arc_levels(arc, count):
     return [lv[math.floor(i * (len(lv) - 1) / (count - 1) + 0.5)] for i in range(count)]
 
 
-def _stride(n, salt):
+# a per-list shuffle instead of an index stride. Integer-factor strides were
+# measured to fail: lists of related lengths march in lockstep, so the same
+# pairing repeats through the series. A permutation seeded by (salt, n)
+# keeps every item exactly once per cycle and gives each list its own
+# order, so pairings decorrelate.
+def _walk_order(n, salt):
     if n <= 1:
-        return 1
-    k = 2 + (salt % 7)
-    while math.gcd(k, n) != 1:
-        k += 1
-    return k
+        return [0]
+    idx = list(range(n))
+    random.Random("%d-%d" % (salt, n)).shuffle(idx)
+    return idx
 
 
 def walk_list(items, sel, count, seed, salt):
@@ -234,7 +277,8 @@ def walk_list(items, sel, count, seed, salt):
         set_ = [int(x) % n for x in sel["set"] if isinstance(x, (int, float))]
         if set_:
             return [items[set_[i % len(set_)]] for i in range(count)]
-    return [items[(i * _stride(n, salt)) % n] for i in range(count)]
+    order = _walk_order(n, salt)
+    return [items[order[i % n]] for i in range(count)]
 
 
 def _sel(state, key):

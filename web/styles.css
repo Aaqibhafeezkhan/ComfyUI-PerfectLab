@@ -795,6 +795,7 @@
 .plx-btn { background:#2b2b36; border:1px solid #45455a; color:#d5d2de;
            border-radius:6px; padding:.6em 1em; cursor:pointer; font-size:1em; }
 .plx-btn:hover { border-color:#6a6a85; }
+.plx-btn.act { background:#3a2f16; border-color:#f0b64e; color:#f0b64e; }
 .plx-btn.warn { color:#e06c6c; }
 .plx-right { width:24%; min-width:212px; max-width:340px; border-left:1px solid #3a3a48; padding:10px;
              overflow-y:auto; flex:0 0 auto; }
@@ -822,13 +823,14 @@
 .plx-tile.pick:hover { box-shadow:0 0 0 2px #f0b64e; }
 
 /* look cards: slot preview strip, color swatches, material chips, ratio boxes */
-.plx-look-head { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
-.plx-look-head .plx-name { flex:1; }
-.plx-look-strip { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; flex:0 0 auto; }
+.plx-look-head { display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+.plx-look-head .plx-name { flex:1; min-width:96px; }
+.plx-look-strip { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; flex:1 1 168px; max-width:264px; min-width:0; }
 .plx-look-strip img, .plx-look-strip .plp-tile {
-    width:84px; height:84px; border-radius:6px; object-fit:cover; display:block;
-    background:#2b2b36; color:#8a879e; text-align:center; line-height:44px;
+    width:100%; aspect-ratio:1/1; height:auto; border-radius:6px; object-fit:cover; display:block;
+    background:#2b2b36; color:#8a879e; text-align:center;
     font-size:24px; font-weight:700; border:1px solid #3f3f52; }
+.plx-look-strip .plp-tile { display:flex; align-items:center; justify-content:center; }
 .plx-swatches { display:flex; gap:6px; flex-wrap:wrap; margin:4px 0; }
 .plx-swatch { width:48px; height:48px; border-radius:50%; cursor:pointer;
     border:3px solid #3f3f52; background:var(--sw); padding:0; }
