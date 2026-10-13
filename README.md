@@ -13,7 +13,7 @@ PerfectLab Studio builds AI photoshoots inside one ComfyUI node. Pick the person
 
 - **A whole shoot in one click.** Set the number of shots and takes, press START SHOOT, and every frame gets its own crop, pose, expression, seed and metadata line. The session walks your picks in order.
 - **You pick what you see.** Every library entry carries a photo tile: 553 previews rendered through a real graph, the same face and the same light across the whole set.
-- **The person stays the same.** Persona fields, a LoRA trigger line and per-shot seeds keep one character across dozens of frames. A fixed-seed option pins one noise to the whole session for clean A/B comparisons.
+- **The person stays the same.** The persona block and per-shot seeds keep the description stable, and a fixed-seed option pins one noise to the whole session for clean A/B. For the same *face* across shoots, use a character LoRA: type its trigger word into the trigger line and every prompt starts with it. Prompts alone give you the same description; a LoRA gives you the same person.
 - **Prompts that fit the model.** Natural language for Flux, Z-Image and Qwen-Image, comma tags for SDXL. The built-in linter watches the token budget, duplicates, unbalanced braces and missing wildcard files.
 - **A session with a story.** Dramaturgy arcs bend the shoot along an emotional curve: quiet points render once, climaxes pull closer crops, stronger poses and full take stacks.
 - **Your own everything.** Custom wardrobe, props and places typed right into the cards. Your own wildcard lists, presets and arcs as files. Tiles for your own pieces shot through your own graph.
@@ -269,6 +269,15 @@ Yes. Every frame carries a META line with the full recipe (framing tier, seed, t
 
 **Does it work with my checkpoint?**
 Any text-to-image model works: the node feeds your graph through the standard CLIP Text Encode inputs. The prompt style switch and the token budget cover the SDXL tags family and the natural-language families (Z-Image, Flux, Qwen-Image).
+
+**Can I plug it into my existing workflow?**
+Yes. The node outputs PROMPT, NEGATIVE, WIDTH, HEIGHT, SEED and META lists. Wire them into your CLIP Text Encode, Empty Latent Image and KSampler nodes as usual. The model graph stays yours: SDXL, Flux, Z-Image, Qwen-Image, video pipelines, anything that takes a text prompt.
+
+**Can I import characters I already made?**
+If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. Saved prompt texts can be pasted into any own-line field, and the panel's SAVE/LOAD presets keep full setups inside ComfyUI.
+
+**Will prompts alone give me a fully consistent character?**
+No, and it is worth saying plainly: text locks the description, not the face. The persona fields keep the same wording in every shot, the fixed-seed option keeps the same noise, and a character LoRA is what locks the face itself. The trigger line exists for exactly that.
 
 **Do the preview tiles need the internet?**
 No. All 700 preview tiles ship inside the package and load from your disk, so the panel works fully offline.
