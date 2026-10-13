@@ -12,6 +12,11 @@ Fields **combine**: every picked value joins the persona text; makeup,
 signature and figure accept several picks at once. A picked value replaces
 with one click; a second click clears it.
 
+The **character cards** row rides the top of every persona card: it saves
+the whole persona plus the LoRA trigger under a name in the ComfyUI user
+folder and loads it back in one click. One card per character, the files
+survive node updates.
+
 - **Who / Age**: gender (5 options) and the age of the face (5 presets).
   The tiles are rendered without the cast LoRA: they demonstrate people,
   not one face.
@@ -65,6 +70,11 @@ with one click; a second click clears it.
 <p align="center"><img src="../tiles/nails.jpg" alt="Nails: 8 manicure tiles" width="480"></p>
 
 ## LOOK: the wardrobe, picked not typed
+
+The top card opens with **ready-made looks**: eight curated full looks
+(clean girl, y2k crop, street layer, office sharp, cozy evening, night
+out, sporty set, goth edge), each styling hair, makeup and the first
+look's outfit in one click. The active look highlights itself.
 
 Six subsections: **Tops (41), Bottoms (32), Footwear (28), Headwear (13),
 Lingerie (10), Accessories (36)**. Each card shows the photo grid of its
@@ -218,6 +228,19 @@ session, one per shot.
 
 ## SESSION: what a run renders
 
+The **model profile** row picks the token budget by name: Z-Image / Turbo
+400, Flux.1 512, Krea 2 512, Qwen-Image 1024, SDXL 75 (which flips the
+prompt to comma tags on its own) or a custom number. The linter and the
+engine's guard read the same string, so the warning and the trim always
+match.
+
+The **prompt template** editor sits right under the profile: the sentence
+the engine fills, with the eleven slots listed under the field
+({style} {expression} {framing} {focus} {scene} {lighting} {person} {pose}
+{outfit} {placement} {quality}). A custom order is one edit, the reset
+button restores the stock template, and the linter flags unknown slots and
+a template that lost the {person}.
+
 Shot count (1 to 100), takes per shot (1 to 4), look rotation (blocks or
 mixed), *mood on the subject line* (the expression rides the persona's
 lead clause instead of standing after the crop, moods read stronger) and
@@ -225,7 +248,11 @@ lead clause instead of standing after the crop, moods read stronger) and
 A/B where only the framings, poses and looks vary). The SESSION PLAN card
 in the right column summarizes the run in plain words. Every dock tile in
 session mode is clickable: **re-shoot this frame** queues one fresh take
-of that shot, same setup, a new roll of the seed.
+of that shot, same setup, a new roll of the seed. Every tile also carries
+a ★ keeper: star the frames you keep, press the ↺ button in the dock bar,
+and the panel re-shoots everything you did not star, each fresh take
+landing in its own slot. The presets row next to the rail exports and
+imports presets as files, so setups move between installs.
 
 ## ARCS: the session's dramaturgy
 
@@ -247,7 +274,8 @@ shows the route). With an arc picked, five optional couplings light up:
 
 The light line always follows: intensity words read softer at quiet
 points, bolder at climaxes. Every frame's META carries the arc level and
-each swap.
+each swap. The SESSION plan prints the arc's expression route shot by
+shot: chip by chip, which face each frame wears.
 
 **Own curves**: `perfectlab_arcs.json` in the ComfyUI user folder
 (`user/default/`, or `user/default/userdata/` on older builds):

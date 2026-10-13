@@ -821,6 +821,17 @@
 .plx-tile img { width:100%; height:100%; object-fit:cover; display:block; }
 .plx-tile.pick { cursor:pointer; }
 .plx-tile.pick:hover { box-shadow:0 0 0 2px #f0b64e; }
+/* dock keepers: the star rides a result tile's corner, a kept frame
+   reads gold; the re-shoot-rejected button sits in the dock bar */
+.plx-keep { position:absolute; top:4px; right:4px; z-index:2; width:22px; height:22px;
+            border-radius:50%; border:1px solid #45455a; background:rgba(20,20,27,.78);
+            color:#8a879e; cursor:pointer; font-size:12px; line-height:1; padding:0; }
+.plx-keep:hover { color:#e8e6f0; border-color:#6a6a85; }
+.plx-keep.on { color:#f0b64e; border-color:#f0b64e; background:rgba(60,45,12,.85); }
+.plx-tile.kept { border-color:#f0b64e; }
+.plx-tile.kept img { outline:2px solid #f0b64e; outline-offset:-2px; }
+.plx-rej { color:#e8e6f0; }
+.plx-rej:hover { color:#f0b64e; }
 
 /* look cards: slot preview strip, color swatches, material chips, ratio boxes */
 .plx-look-head { display:flex; gap:8px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
@@ -887,6 +898,15 @@
 .plx-tg:hover { color:#f0b64e; border-color:#f0b64e; background:#33290f;
                 box-shadow:0 0 10px #f0b64e44; }
 .plx-tg svg { flex:0 0 auto; }
+/* the arc's per-shot expression route, under the session plan */
+.plx-route { font-size:.82em; color:#c9c6d6; background:#26262f; border:1px solid #3f3f52;
+             border-radius:5px; padding:2px 7px; }
+.plx-route b { color:#f0b64e; margin-right:4px; }
+.plx-route { display:inline-block; margin:2px 3px 2px 0; }
+/* the quiet update link over the rail footer */
+.plx-rail-upd { display:block; margin:2px 0 6px; font-size:.82em; color:#f0b64e;
+                text-decoration:none; }
+.plx-rail-upd:hover { text-decoration:underline; }
 .plx-rail-ver { margin-top:6px; padding:0 10px; color:#8a879e; font-size:.85em;
                 letter-spacing:.08em; }
 .plx-chip .plx-spark { display:block; width:84px; height:34px; margin:4px auto 6px; color:#a5a2b8; }

@@ -8,18 +8,22 @@
 // the dock with the rendered frames.
 import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
-         libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop }
+         libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
+         PL_VERSION }
     from "./perfectlab_panel_factory.js?v=1.0.3";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
-         setUserArcs, setUserToneSwaps, setUserEnergy }
+         setUserArcs, setUserToneSwaps, setUserEnergy,
+         TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
+         PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
+         arcSeq }
     from "./perfectlab_lib.js?v=1.0.3";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.3";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.3";
 
 // the kit's stylesheet rides along with this module
 {
@@ -124,6 +128,23 @@ const RU = {
     "common guards": "частые запреты", "toggle into the negative line": "переключите в строку негатива",
     "negative": "негатив", "variations": "вариации",
     "picked": "выбрано", "picks active": "есть выборы", "on": "вкл",
+    "model profile": "профиль модели", "Custom": "Свой",
+    "re-shoot every frame you did not keep": "переснять все кадры без звёзд",
+    "ready-made looks": "готовые образы", "hair, makeup and the first look's outfit in one click": "причёска, макияж и наряд первого образа одним кликом",
+    "the arc's expression route": "роут выражений по дуге",
+    "update available": "доступно обновление",
+    "keep this frame -- the batch re-shoot skips it": "оставить этот кадр — батч-пересъём его пропустит",
+    "character cards…": "карточки персонажей…",
+    "save the persona as a character card": "сохранить персону карточкой",
+    "delete this character card": "удалить эту карточку",
+    "Character card name:": "Имя карточки персонажа:",
+    "prompt template": "шаблон промта", "the engine fills the slots from your picks": "движок заполняет слоты из ваших выборов",
+    "reset to default": "вернуть стандартный", "template": "шаблон",
+    "is not a template slot -- the bare word leaks into the prompt.": "не слот шаблона — слово уйдёт в промт как есть.",
+    "The template has no {person} slot -- the persona never reaches the prompt.": "В шаблоне нет слота {person} — персона не попадёт в промт.",
+    "the token budget this profile watches": "какой бюджет токенов профиль проверяет",
+    "tokens -- over the ~n~ token budget. Trim picks, or the engine's guard drops slots.": "токенов — за бюджетом (~n~). Уберите лишние выборы, иначе защита движка сбросит слоты.",
+    "over the token budget, trim picks or the guard drops slots": "за бюджетом токенов — уберите лишнее, иначе защита сбросит слоты",
     "ownline": "строка", "tokens": "токены", "duplicate": "дубль",
     "braces": "скобки", "choice": "выбор", "wildcard": "вайлкард",
     "LAST SHOOT": "ПОСЛЕДНЯЯ СЪЁМКА", "close the results, back to the panel": "закрыть результаты, назад к панели",
@@ -272,6 +293,28 @@ const plural = (n, word) => {
 };
 // translate a space-separated label word by word ("look 1 top" -> "образ 1 верх")
 const trw = (s) => String(s ?? "").split(" ").map(w => tr(w)).join(" ");
+// model profiles: a named token budget the linter watches and the engine's
+// guard reads (session.token_limit carries the same "Name · N" string).
+// "custom" takes the number from the token_budget field, "off" disables
+const MODEL_PROFILES = [
+    { id: "z_image", label: "Z-Image / Turbo", budget: 400, style: "natural" },
+    { id: "flux", label: "Flux.1", budget: 512, style: "natural" },
+    { id: "krea2", label: "Krea 2", budget: 512, style: "natural" },
+    { id: "qwen", label: "Qwen-Image", budget: 1024, style: "natural" },
+    { id: "sdxl", label: "SDXL", budget: 75, style: "tags" },
+    { id: "custom", label: "Custom", budget: 0, style: null },
+    { id: "off", label: "Off", budget: 0, style: null },
+];
+const profileOf = (s) => MODEL_PROFILES.find(p => p.id === (s.session.model_profile || "z_image")) || MODEL_PROFILES[0];
+const budgetOf = (s) => {
+    const p = profileOf(s);
+    if (p.id === "off") return 0;
+    return p.id === "custom" ? Math.max(0, Math.round(+s.session.token_budget || 0)) : p.budget;
+};
+const tokenLimitOf = (s) => {
+    const b = budgetOf(s);
+    return b ? profileOf(s).label + " · " + b : "off";
+};
 
 // every section: key, label, the tile category the dock previews, and a
 // center-render function producing HTML
@@ -325,7 +368,9 @@ const DEFAULT_STATE = () => ({
     shot: { main_prompt: "", custom: "", style_mode: "natural" },
     session: { count: 6, takes: 1, mood_subject: true, takes_arc: false, fixed_seed: false,
                pose_arc: false, place_arc: false, crop_arc: false, focus_arc: false,
-               look_rotation: "blocks", reshoot_shot: 0 },
+               look_rotation: "blocks", reshoot_shot: 0,
+               model_profile: "z_image", token_budget: 400, template: "",
+               token_limit: "Z-Image / Turbo · 400" },
 });
 
 function readState(node) {
@@ -519,7 +564,9 @@ const sessionEditor = (s) => `
         <div><label>${tr("look rotation")}</label><select class="plx-inp" data-rotation>
             <option value="blocks" ${s.session.look_rotation === "blocks" ? "selected" : ""}>${tr("blocks")}</option>
             <option value="mixed" ${s.session.look_rotation === "mixed" ? "selected" : ""}>${tr("mixed")}</option></select></div>
-        <div><label>${tr("token guard")}</label><select class="plx-inp" data-token disabled><option value="off">${tr("off")}</option></select></div>
+        <div><label>${tr("model profile")}</label><select class="plx-inp" data-modelprofile>
+            ${MODEL_PROFILES.map(p => `<option value="${p.id}" ${s.session.model_profile === p.id ? "selected" : ""}>${tr(p.label)}</option>`).join("")}</select>
+            ${profileOf(s).id === "custom" ? `<input class="plx-inp tiny" type="number" min="0" max="4096" data-tokenbudget value="${s.session.token_budget ?? 400}" title="${tr("the token budget this profile watches")}">` : ""}</div>
     </div>
     <div class="plx-sub">${tr("expression placement")}</div>
     ${[["mood_subject", "mood on the subject line", "the expression rides the persona's lead clause instead of standing after the crop -- moods read stronger"],
@@ -539,6 +586,10 @@ const sessionEditor = (s) => `
        ["crop_arc", "crop follows the arc", "a climax tightens the crop, a quiet point lets it breathe wider"],
        ["focus_arc", "focus follows the arc", "a climax draws the eye onto the person, a quiet point lets it drift off"]]
       .map(([k, t, d]) => `<label class="plx-check"><input type="checkbox" data-coup="${k}" ${s.session[k] ? "checked" : ""}> <b>${tr(t)}</b><br><i class="plx-dim">${tr(d)}</i></label>`).join("")}` : ""}
+    <div class="plx-sub">${tr("prompt template")} <span class="plx-dim">${tr("the engine fills the slots from your picks")}</span></div>
+    <textarea class="plx-inp plx-wide" data-template rows="3" placeholder="${esc(DEFAULT_TEMPLATE)}">${esc(s.session.template || "")}</textarea>
+    <div class="plx-row"><span class="plx-dim">{style} {expression} {framing} {focus} {scene} {lighting} {person} {pose} {outfit} {placement} {quality}</span>
+        <button class="plx-btn" data-templatereset>${tr("reset to default")}</button></div>
     <div class="plx-sub">${tr("what a run does")}</div>
     <div class="plx-session">
         ${tr("START SHOOT queues <b>~n~</b> ~shot~ × <b>~t~</b> ~take~")
@@ -681,7 +732,36 @@ const liveText = (s, seed = 0) => {
         s.shot.custom,
     ].filter(Boolean);
     const raw = parts.join("\n\n");
-    const text = resolveChoices(resolveWildcards(raw, seed, wcGet), seed);
+    // the engine's own shape: the template's slots filled from this draft.
+    // The JS builders mirror the composers closely enough for a preview;
+    // the engine's text stays the source of truth for what renders
+    const firstOf = (arr) => (arr && arr.length ? arr[0] : "");
+    const tier = TIERS[framings[0]] || "medium";
+    let personSlot = per && (s.persona.trigger ? `${per} (${s.persona.trigger})` : per) || "";
+    const exprPicked = firstOf(expressions) || "";
+    let exprSlot = exprPicked;
+    if (s.session.mood_subject && exprSlot && personSlot && framings[0] !== MACRO_SHOES) {
+        personSlot = subjectWeave(personSlot, exprSlot);
+        exprSlot = "";
+    }
+    const focusV = focusForShot(firstOf(focus), tier, firstOf(poses)) || TIER_FALLBACK_FOCUS[tier] || "";
+    const sceneSlot = [s.scene.location, s.scene.weather, s.scene.details,
+        (s.scene.props || []).length && "with " + (s.scene.props.length > 1
+            ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
+            : s.scene.props[0])].filter(Boolean).join(", ");
+    const slotVals = { person: personSlot, scene: sceneSlot,
+        style: [s.style.grade, s.style.style_film || s.style.film, s.style.palette].filter(Boolean).join(", "),
+        framing: framings[0] ? framingText(framings[0]) : "",
+        focus: focusV, pose: firstOf(poses) || "",
+        placement: walk(PLACEMENT_LIB, null, 1, seed)[0] || "",
+        expression: exprSlot, lighting: light,
+        outfit: [wearing, extras].filter(Boolean).join(", "),
+        quality: "editorial photography, natural light" };
+    const tmpl = (s.session.template || "").trim() || DEFAULT_TEMPLATE;
+    let filled = tmpl;
+    for (const k of TEMPLATE_KEYS) filled = filled.split("{" + k + "}").join(slotVals[k] || "");
+    if (!focusV) filled = filled.replace(/focused on\s*(\.|,|$)\s*/g, " ");
+    const text = resolveChoices(resolveWildcards(filled, seed, wcGet), seed);
     return { text, raw, parts: parts.filter(Boolean),
              tokens: Math.max(1, Math.round(text.length / 3.6)) };
 };
@@ -786,7 +866,17 @@ const personaSub = (s, ui, fieldKey) => {
     const f = s.persona.fields || {};
     const vals = f[field.key];
     const have = Array.isArray(vals) ? vals : (vals ? [vals] : []);
+    // character cards: the persona fields + the trigger word under one name,
+    // stored in userdata -- switching characters is a one-click load
+    const charRow = `
+        <div class="plx-row">
+            <select class="plx-inp" data-chars><option value="">${tr("character cards…")}</option>
+                ${(ui.chars || []).map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
+            <button class="plx-btn" data-charsave title="${tr("save the persona as a character card")}">💾 ${tr("save")}</button>
+            <button class="plx-btn warn" data-chardel title="${tr("delete this character card")}">✕</button>
+        </div>`;
     const body = `
+        ${charRow}
         <div class="plx-chips">${field.options.map((o, i) => `
             <div class="plx-chip ${have.includes(o) ? "act" : ""}" data-val="${esc(o)}" data-multi="${field.multi}">
                 ${tile(o, field.imgcat, i)}<span>${esc(disp(o))}</span></div>`).join("")}</div>
@@ -973,6 +1063,10 @@ const lookSlotSub = (slot, lib, cat, title) => (s) => card(title,
                    value="${esc(l[slot] || "")}" placeholder="${tr("own line…")}">
             <button class="plx-btn" data-shoottile="wardrobe__${slot}" title="${tr("shoot a preview tile for this piece with your graph")}">🎬</button>
         </div>
+        ${slot === "top" ? `<div class="plx-sub">${tr("ready-made looks")} <span class="plx-dim">${tr("hair, makeup and the first look's outfit in one click")}</span></div>
+        <div class="plx-chips tight">${COMBO_LOOKS.map(cb => `
+            <div class="plx-chip ${l.top === cb.top && l.bottom === cb.bottom && l.footwear === cb.footwear ? "act" : ""}" data-combo="${esc(cb.name)}">
+                ${tile(cb.name, "tops", TOPS_LIB.indexOf(cb.top))}<span>${esc(disp(cb.name))}</span></div>`).join("")}</div>` : ""}
         <div class="plx-chips tight">${lib.map((o, i) => `
             <div class="plx-chip ${l[slot] === o ? "act" : ""}" data-pick="${slot}" data-val="${esc(o)}">
                 ${tile(o, cat, i)}<span>${esc(disp(o))}</span></div>`).join("")}</div> ${libChips("wardrobe__" + slot, { act: o => l[slot] === o })}
@@ -1046,10 +1140,50 @@ const SUB_RENDER = {
 
 function buildPanel(node) {
     const state = readState(node);
+    // states saved before the model profiles carry no token_limit: the
+    // engine would guard at its own default while the linter watched the
+    // profile's -- normalize both to the same string
+    if (state.session && state.session.model_profile === undefined) {
+        state.session.model_profile = "z_image";
+        state.session.token_budget = 400;
+        state.session.token_limit = tokenLimitOf(state);
+    }
     // the panel opens on the photo-rich hair field -- the value-only fields
     // (who, age) sit further along the tab row
     const ui = { section: "persona", personaField: "hair", dockPage: 0, results: null, dockOpen: false,
-                 wc: { files: [], editing: null, text: "", newName: "" } };
+                 chars: [], wc: { files: [], editing: null, text: "", newName: "" } };
+    // character cards live in userdata/perfectlab_characters, the same shelf
+    // presets and wildcards use
+    const loadChars = async () => {
+        try {
+            const d = await (await fetch("/api/userdata?dir=perfectlab_characters&recurse=false&split=false&full_info=false")).json();
+            ui.chars = (Array.isArray(d) ? d : (d.tracks || d.files || [])).filter(t => typeof t === "string")
+                .map(t => t.replace(/\.json$/, ""));
+        } catch (e) { ui.chars = []; }
+    };
+    loadChars();
+    // the update indicator: read the stored verdict first (no network on
+    // load), refresh it from the registry at most once a day
+    let updVer = "";
+    try {
+        const st = JSON.parse(localStorage.getItem("plx_vercheck") || "{}");
+        updVer = st.newer || "";
+        if (Date.now() - (st.checked || 0) > 20 * 3600 * 1000) {
+            fetch("https://api.comfy.org/nodes/comfyui-perfectlab")
+                .then(r => r.json())
+                .then(d => {
+                    const latest = String((d.latest_version || {}).version || "").trim();
+                    const cur = PL_VERSION;
+                    const num = (v) => String(v).split(".").map(x => parseInt(x, 10) || 0);
+                    const [a, b, c3] = num(cur), [x, y, z] = num(latest);
+                    const newer = latest && (x > a || (x === a && y > b) || (x === a && y === b && z > c3));
+                    localStorage.setItem("plx_vercheck",
+                        JSON.stringify({ checked: Date.now(), newer: newer ? latest : "" }));
+                    if (newer && updVer !== latest) { updVer = latest; renderRail(); }
+                })
+                .catch(() => {});
+        }
+    } catch (e) {}
 
     const el = document.createElement("div");
     el.className = "plx";
@@ -1407,7 +1541,8 @@ function buildPanel(node) {
             <svg viewBox="0 0 24 24" width="13" height="13"><path fill="currentColor" d="M21.9 4.6c.3-1.3-.8-2-1.9-1.6L2.7 9.7c-1.3.5-1.2 1.9-.1 2.3l4.4 1.4 1.7 5.2c.3.9 1.5 1.2 2.2.5l2.3-2.1 4.4 3.2c.9.6 2.1.2 2.3-.9l3.3-14.7zM8.2 12.9l9.4-5.9c.4-.3.8.2.5.6l-7.7 7-.3 3.1-1.9-4.8z"/></svg>
             @PerfectJohny</a>
         <div class="plx-rail-keys">${tr("X · clear card")}<br>${tr("Shift+X · clear section")}<br>${tr("Alt+X · reset all")}</div>
-        <div class="plx-rail-ver">PerfectLab v1.0.3</div>`;
+        <div class="plx-rail-ver">PerfectLab v${PL_VERSION}</div>
+        ${updVer ? `<a class="plx-rail-upd" href="https://github.com/perfectmodelslab/ComfyUI-PerfectLab/releases" target="_blank" rel="noopener">↑ ${tr("update available")}: v${esc(updVer)}</a>` : ""}`;
         // the category row: one click opens (and selects); a second closes
         rail.querySelectorAll("[data-sec]").forEach(r => r.onclick = e => {
             if (e.target.dataset.off !== undefined || e.target.dataset.subnav) return;
@@ -1809,6 +1944,61 @@ function buildPanel(node) {
             state.session.takes = Math.max(1, Math.min(4, +inp.value || 1)); sync(); });
         center.querySelectorAll("[data-rotation]").forEach(inp => inp.onchange = () => {
             state.session.look_rotation = inp.value; sync(); });
+        center.querySelectorAll("[data-modelprofile]").forEach(inp => inp.onchange = () => {
+            state.session.model_profile = inp.value;
+            const pr = profileOf(state);
+            if (pr.style) state.shot.style_mode = pr.style;   // the family's own wording
+            state.session.token_limit = tokenLimitOf(state);   // the engine guard reads this
+            sync();
+        });
+        // character cards: load / save / delete in userdata
+        center.querySelectorAll("[data-chars]").forEach(sel2 => sel2.onchange = async () => {
+            if (!sel2.value) return;
+            try {
+                const card = JSON.parse(await plRead(`perfectlab_characters/${encodeURIComponent(sel2.value)}.json`));
+                state.persona.fields = card.fields || {};
+                state.persona.trigger = card.trigger || "";
+                sync();
+            } catch (e) {}
+        });
+        center.querySelectorAll("[data-charsave]").forEach(b => b.onclick = async () => {
+            const name = prompt(tr("Character card name:"), "");
+            if (!name) return;
+            await plWrite(`perfectlab_characters/${encodeURIComponent(name)}.json`,
+                JSON.stringify({ name, fields: state.persona.fields || {}, trigger: state.persona.trigger || "" }));
+            await loadChars();
+            sync();
+        });
+        center.querySelectorAll("[data-chardel]").forEach(b => b.onclick = async () => {
+            const sel2 = center.querySelector("[data-chars]");
+            if (!sel2 || !sel2.value) return;
+            await plDrop(`perfectlab_characters/${encodeURIComponent(sel2.value)}.json`);
+            await loadChars();
+            sync();
+        });
+        // curated full looks: hair + makeup + the first look's outfit
+        center.querySelectorAll("[data-combo]").forEach(c2 => c2.onclick = () => {
+            const cb = COMBO_LOOKS.find(x => x.name === c2.dataset.combo);
+            if (!cb) return;
+            const l0 = (state.look.looks || [])[0];
+            if (!l0) return;
+            if (!state.persona.fields) state.persona.fields = {};
+            if (cb.hair) state.persona.fields.hair = cb.hair;
+            if (cb.makeup) state.persona.fields.makeup = cb.makeup;
+            if (cb.top) l0.top = cb.top;
+            if (cb.bottom) l0.bottom = cb.bottom;
+            if (cb.footwear) l0.footwear = cb.footwear;
+            sync();
+        });
+        center.querySelectorAll("[data-template]").forEach(t => t.onchange = () => {
+            state.session.template = t.value; sync(); });
+        center.querySelectorAll("[data-templatereset]").forEach(b => b.onclick = () => {
+            state.session.template = ""; sync(); });
+        center.querySelectorAll("[data-tokenbudget]").forEach(inp => inp.onchange = () => {
+            state.session.token_budget = Math.max(0, Math.round(+inp.value || 0));
+            state.session.token_limit = tokenLimitOf(state);
+            sync();
+        });
         center.querySelectorAll("[data-coup]").forEach(c => c.onchange = () => {
             state.session[c.dataset.coup] = c.checked; sync(); });
         center.querySelectorAll("[data-arc]").forEach(c => c.onclick = () => {
@@ -1855,8 +2045,9 @@ function buildPanel(node) {
                 issues.push({ t: "ownline", d: tr("~w~ is ~n~ characters -- over the ~max~ the model still reads as one intent. Split it or trim.")
                     .replace("~w~", trw(where)).replace("~n~", line.length).replace("~max~", OWN_MAX) });
         }
-        if (lt.tokens > 400) issues.push({
-            t: "tokens", d: `${lt.tokens} ${tr("tokens -- over the Z-Image budget (400). Trim picks, or the engine's guard drops slots.")}` });
+        const budget = budgetOf(state);
+        if (budget && lt.tokens > budget) issues.push({
+            t: "tokens", d: `${lt.tokens} ${tr("tokens -- over the ~n~ token budget. Trim picks, or the engine's guard drops slots.").replace("~n~", budget)}` });
         // duplicates: same value picked twice (a pick and a typed copy)
         const seen = new Set();
         for (const part of lt.parts) {
@@ -1876,6 +2067,17 @@ function buildPanel(node) {
         const wc = lt.text.match(/__([A-Za-z0-9_-]+)__/g);
         if (wc) issues.push({
             t: "wildcard", d: `__${wc[0].replace(/__/g, "")}__ ${tr("has no file in web/wildcards/ -- the token goes to the model as-is.")}` });
+        // a custom template: unknown slots leak into the prompt verbatim,
+        // and a template without the person slot loses the persona
+        const tmplStr = ((s.session || {}).template || "").trim();
+        if (tmplStr) {
+            const unknown = (tmplStr.match(/\{[a-z_]+\}/g) || [])
+                .filter(m => !TEMPLATE_KEYS.includes(m.slice(1, -1)));
+            if (unknown.length) issues.push({
+                t: "template", d: `"${unknown[0].slice(1, -1)}" ${tr("is not a template slot -- the bare word leaks into the prompt.")}` });
+            if (!tmplStr.includes("{person}")) issues.push({
+                t: "template", d: tr("The template has no {person} slot -- the persona never reaches the prompt.") });
+        }
         // negative enabled but empty
         if (s.negative.enabled && !s.negative.text
             && !(s.negative.presets || []).length)
@@ -1900,7 +2102,7 @@ function buildPanel(node) {
                 <option value="natural" ${(state.shot.style_mode || "natural") === "natural" ? "selected" : ""}>${tr("natural language (Flux / Z-Image)")}</option>
                 <option value="tags" ${(state.shot.style_mode || "natural") === "tags" ? "selected" : ""}>${tr("SDXL tags (comma list)")}</option>
             </select></div>
-            <div class="plx-sub">${tr("LIVE TEXT")} <span class="plx-dim ${tokens > 400 ? "over" : ""}">${tr("estimate")} · ${tokens} ${tr("tok")}${tokens > 400 ? ` -- ${tr("over the Z-Image budget, trim picks or the guard drops slots")}` : ""}</span></div>
+            <div class="plx-sub">${tr("LIVE TEXT")} <span class="plx-dim ${(budgetOf(state) && tokens > budgetOf(state)) ? "over" : ""}">${tr("estimate")} · ${budgetOf(state) ? `${tokens}/${budgetOf(state)}` : tokens} ${tr("tok")}${budgetOf(state) && tokens > budgetOf(state) ? ` -- ${tr("over the token budget, trim picks or the guard drops slots")}` : ""}</span></div>
             <div class="plx-live">${esc(text)}</div>
             <div class="plx-sub">${tr("SESSION PLAN")}</div>
             <div class="plx-session">
@@ -1908,7 +2110,10 @@ function buildPanel(node) {
                 (<b>${state.session.count}</b> ${plural(state.session.count, "shot")} × <b>${state.session.takes}</b> ${plural(state.session.takes, "take")}).<br>
                 ${(state.look.looks || []).length > 1 ? `${(state.look.looks || []).length} ${plural((state.look.looks || []).length, "look")} ${tr("rotate")} ${esc(tr(state.session.look_rotation))}.` : tr("One look for the whole session.")}<br>
                 ${state.expression.arc ? tr("On the ~arc~ arc~tail~.").replace("~arc~", `<b>${esc(disp(state.expression.arc))}</b>`).replace("~tail~", state.session.takes_arc ? ` -- ${tr("takes ride the curve")}` : "") : ""}
-            </div>`;
+            </div>
+            ${state.expression.arc && state.session.count > 1 ? `<div class="plx-sub">${tr("the arc's expression route")}</div>
+            <div class="plx-chips tight">${arcSeq(state.expression.arc, state.session.count).map((e, i) => `
+                <span class="plx-route"><b>${i + 1}</b> ${esc(disp(e))}</span>`).join("")}</div>` : ""}`;
         // the linter badge: amber when issues exist, its title carries the list
         const lintBtn = header.querySelector("[data-lint]");
         if (lintBtn) {
@@ -1933,7 +2138,7 @@ function buildPanel(node) {
 
     // ---- preview dock: 8 tiles, paging ---------------------------------
     function dockItems() {
-        if (ui.results) return { imgs: ui.results, label: `${tr("LAST SHOOT")} · ${ui.results.length} ${plural(ui.results.length, "frame")}` };
+        if (ui.results) return { imgs: ui.results.map(r => r.src), label: `${tr("LAST SHOOT")} · ${ui.results.length} ${plural(ui.results.length, "frame")}` };
         const sec = SECTIONS.find(s2 => s2.key === ui.section);
         if (!sec) return { imgs: [], label: tr("PREVIEW") };
         const label = `${tr(sec.label)} · ${tr("PREVIEW")}`;
@@ -1983,17 +2188,40 @@ function buildPanel(node) {
                     `<i class="${p === ui.dockPage ? "on" : ""}" data-page="${p}"></i>`).join("")}</div>
                 <button class="plx-nav" data-prev>‹</button>
                 <button class="plx-nav" data-next>›</button>
+                ${reshootable && ui.results.some(r => !r.keep)
+                    ? `<button class="plx-nav plx-rej" data-reshootrej title="${tr("re-shoot every frame you did not keep")}">↺ ${ui.results.filter(r => !r.keep).length}</button>` : ""}
                 <button class="plx-nav" data-close title="${tr("close the results, back to the panel")}">✕</button>
             </div>
             <div class="plx-dock-tiles" style="grid-template-columns:repeat(8, 1fr)">${slice.map((src, k) => `
-                <div class="plx-tile ${ui.results && reshootable ? "pick" : ""}" data-t="${ui.dockPage * per + k}" title="${ui.results ? tr("re-shoot this frame") : ""}">
+                <div class="plx-tile ${ui.results && reshootable ? "pick" : ""} ${ui.results && ui.results[ui.dockPage * per + k]?.keep ? "kept" : ""}" data-t="${ui.dockPage * per + k}" title="${ui.results ? tr("re-shoot this frame") : ""}">
                     ${src.startsWith("data:") || src.includes("/view?") || src.includes("filename=")
                         ? `<img src="${src}">` : `<img src="${src}?v=${GUIDE_V}">`}
+                    ${ui.results ? `<button class="plx-keep ${ui.results[ui.dockPage * per + k]?.keep ? "on" : ""}" data-keep="${ui.dockPage * per + k}" title="${tr("keep this frame -- the batch re-shoot skips it")}">★</button>` : ""}
                 </div>`).join("")}</div>`;
         dock.querySelector("[data-prev]").onclick = () => { ui.dockPage = Math.max(0, ui.dockPage - 1); renderDock(); };
         dock.querySelector("[data-next]").onclick = () => { ui.dockPage = Math.min(pages - 1, ui.dockPage + 1); renderDock(); };
         dock.querySelector("[data-close]").onclick = () => { ui.dockOpen = false; renderDock(); renderHeader(); };
         dock.querySelectorAll("[data-page]").forEach(d => d.onclick = () => { ui.dockPage = +d.dataset.page; renderDock(); });
+        dock.querySelectorAll("[data-keep]").forEach(b => b.onclick = (e) => {
+            e.stopPropagation();
+            const r = ui.results && ui.results[+b.dataset.keep];
+            if (r) r.keep = !r.keep;
+            renderDock();
+        });
+        const rejBtn = dock.querySelector("[data-reshootrej]");
+        if (rejBtn) rejBtn.onclick = async () => {
+            const rej = (ui.results || []).map((r, i) => (r.keep ? -1 : i)).filter(i => i >= 0);
+            if (!rej.length) return;
+            for (const i of rej) {
+                state.session.reshoot_shot = i + 1;   // 1-based, 0 = off
+                writeState(node, state);
+                const pid = await queueShoot();
+                if (pid) watchShoot(pid, i, true);
+            }
+            state.session.reshoot_shot = 0;           // the next START SHOOT renders the whole session
+            writeState(node, state);
+            renderHeader();
+        };
         dock.querySelectorAll(".plx-tile.pick").forEach(t => t.onclick = () => {
             state.session.reshoot_shot = +t.dataset.t + 1;   // 1-based, 0 = off
             writeState(node, state);
@@ -2003,11 +2231,14 @@ function buildPanel(node) {
     }
 
     // ---- START SHOOT ---------------------------------------------------
-    async function startShoot() {
+    // queueShoot: one queued prompt; watchShoot: poll it and lay the frames
+    // down. A full shoot rebuilds the results wall; a re-shoot (slot >= 0)
+    // swaps the fresh frame into that slot, so the wall survives the pick
+    async function queueShoot() {
         writeState(node, state);
         let p;
         try { p = await app.graphToPrompt(); }
-        catch (e) { console.warn("PerfectLab: graphToPrompt failed", e); return; }
+        catch (e) { console.warn("PerfectLab: graphToPrompt failed", e); return null; }
         // the workflow rides in extra_data.extra_pnginfo -- SaveImage copies
         // it into the PNG, so dragging the rendered file back onto the
         // canvas restores this node with its whole panel state
@@ -2017,15 +2248,10 @@ function buildPanel(node) {
         const r = await fetch("/prompt", { method: "POST",
             headers: { "Content-Type": "application/json" }, body });
         const { prompt_id, error } = await r.json().catch(() => ({}));
-        if (!prompt_id) { console.warn("PerfectLab: queue failed", error); return; }
-        // the re-shoot order rode along in the queued prompt -- drop it so
-        // the next START SHOOT renders the whole session again; a re-shoot
-        // started from the dock keeps the dock open for the fresh frame
-        const keepDockOpen = !!(state.session && state.session.reshoot_shot);
-        if (keepDockOpen) {
-            state.session.reshoot_shot = 0;
-            writeState(node, state);
-        }
+        if (!prompt_id) { console.warn("PerfectLab: queue failed", error); return null; }
+        return prompt_id;
+    }
+    function watchShoot(prompt_id, slot, keepDockOpen) {
         // the dock may still be hidden with no bar built -- the label writes
         // must survive that
         const setLabel = (t) => {
@@ -2044,14 +2270,33 @@ function buildPanel(node) {
             for (const out of Object.values(h.outputs || {}))
                 for (const im of out.images || [])
                     imgs.push(`/view?filename=${encodeURIComponent(im.filename)}&subfolder=${encodeURIComponent(im.subfolder || "")}&type=${im.type || "output"}`);
-            ui.results = imgs;
-            ui.dockPage = 0;
-            ui.dockOpen = keepDockOpen;   // full shoots: open via the header button
+            if (slot >= 0 && ui.results && ui.results[slot]) {
+                // a re-shot frame lands in its own slot; the star resets,
+                // the fresh take earns its own judgement
+                ui.results[slot] = { src: imgs[0] || ui.results[slot].src, keep: false };
+                ui.dockPage = Math.floor(slot / 8);   // show the fresh frame
+            } else {
+                ui.results = imgs.map(src => ({ src, keep: false }));
+                ui.dockPage = 0;
+                ui.dockOpen = keepDockOpen;   // full shoots: open via the header button
+            }
             renderHeader();
             renderDock();          // builds the bar first, then the label
-            setLabel(`${tr("SHOT")} ${imgs.length} · ${Math.round((Date.now() - t0) / 1000)}${LANG === "ru" ? " с" : "s"}`);
+            setLabel(`${tr("SHOT")} ${(slot >= 0 ? 1 : imgs.length)} · ${Math.round((Date.now() - t0) / 1000)}${LANG === "ru" ? " с" : "s"}`);
         };
         poll();
+    }
+    async function startShoot() {
+        // a re-shoot order rode along in the queued prompt -- drop it after
+        // the queue so the next START SHOOT renders the whole session
+        const slot = (+state.session.reshoot_shot || 0) - 1;
+        const keepDockOpen = slot >= 0;
+        const pid = await queueShoot();
+        if (slot >= 0) {
+            state.session.reshoot_shot = 0;
+            writeState(node, state);
+        }
+        if (pid) watchShoot(pid, slot, keepDockOpen);
     }
 
     // ---- library search: every list on one type ------------------------
@@ -2131,7 +2376,9 @@ function buildPanel(node) {
                     custom: "", style_mode: "natural" },
             session: { count: 1, takes: 1, mood_subject: true, takes_arc: false,
                        pose_arc: false, place_arc: false, crop_arc: false, focus_arc: false,
-                       look_rotation: "blocks", reshoot_shot: 0 }
+                       look_rotation: "blocks", reshoot_shot: 0,
+                       model_profile: "z_image", token_budget: 400, template: "",
+                       token_limit: "Z-Image / Turbo · 400" }
         });
         writeState(node, tileState);
         let p;

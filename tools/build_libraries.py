@@ -98,6 +98,28 @@ NEG_PRESETS = ["deformed hands, extra fingers", "bad anatomy, twisted limbs",
 
 FRAMING_LIB = list(series_nodes.TIERS.keys())   # dict order == the walk order
 
+# curated full looks: one tile styles hair + makeup + the first look's
+# outfit. Values reference the libraries verbatim; the parity test keeps
+# them honest
+COMBO_LOOKS = [
+    {"name": "clean girl", "hair": "low chignon", "makeup": "a no-makeup natural look",
+     "top": "a tiny baby tee", "bottom": "high-waisted wide-leg trousers", "footwear": "classic pumps"},
+    {"name": "y2k crop", "hair": "long platinum waves", "makeup": "glossy pink lips",
+     "top": "a crop top", "bottom": "a short pleated skirt", "footwear": "chunky sneakers"},
+    {"name": "street layer", "hair": "half-up half-down hair", "makeup": "dewy blush on the cheeks",
+     "top": "an oversized white crop hoodie", "bottom": "low-rise baggy sweatpants", "footwear": "retro skate sneakers"},
+    {"name": "office sharp", "hair": "sleek high ponytail", "makeup": "sculpted contour with highlight",
+     "top": "an oversized blazer", "bottom": "a satin midi skirt", "footwear": "slim stiletto heels"},
+    {"name": "cozy evening", "hair": "voluminous blowout", "makeup": "berry stained lips",
+     "top": "a cozy oversized sweater", "bottom": "high-waisted wide-leg trousers", "footwear": "platform loafers"},
+    {"name": "night out", "hair": "side-swept curls", "makeup": "dark smokey eyes",
+     "top": "a slip top", "bottom": "a satin midi skirt", "footwear": "strappy sandals"},
+    {"name": "sporty set", "hair": "messy bun with loose strands", "makeup": "glass skin glow",
+     "top": "a track jacket with piping details", "bottom": "loose track pants", "footwear": "chunky sneakers"},
+    {"name": "goth edge", "hair": "wet-look slicked back hair", "makeup": "black gothic lipstick",
+     "top": "a biker jacket over a band tee", "bottom": "distressed skinny jeans", "footwear": "lug-sole combat boots"},
+]
+
 
 def jlist(name, items):
     return f"export const {name} = {json.dumps(items, ensure_ascii=False)};\n"
@@ -127,6 +149,7 @@ def build():
         ("HEADWEAR_MATERIALS", HEADWEAR_MATERIALS),
         ("LENS_LIB", LENS_LIB), ("PROPS_LIB", PROPS_LIB), ("LINGERIE_LIB", wardrobe_node.LINGERIE),
         ("COMPOSITION_LIB", COMPOSITION_LIB), ("NEG_PRESETS", NEG_PRESETS),
+        ("COMBO_LOOKS", COMBO_LOOKS),
     ]:
         out.append(jlist(name, items))
     # the display dictionary: RU captions over English prompt values

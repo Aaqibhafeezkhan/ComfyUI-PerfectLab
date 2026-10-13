@@ -52,7 +52,7 @@ One row per section: every tile that section has picked. Click a row label to ju
 
 ## 👤 Persona
 
-Ten fields, each combining into the persona text. Multi-pick fields stack, single-pick fields replace.
+Ten fields, each combining into the persona text. Multi-pick fields stack, single-pick fields replace. The **character cards** row saves the whole persona plus the LoRA trigger under a name: build a character once, switch between your characters in one click.
 
 ### 💇 Hair
 
@@ -84,7 +84,7 @@ Ten fields, each combining into the persona text. Multi-pick fields stack, singl
 
 ## 👗 Look
 
-41 tops (street, swim, sport, sleep, evening), 32 bottoms, 28 footwear, 13 headwear, 36 accessories and its own Lingerie slot with 10 sets. Each garment takes a color from photo swatches and a material from 22 fabric textures. Both go into the prompt: *wearing silk cropped tank top in champagne gold*.
+41 tops (street, swim, sport, sleep, evening), 32 bottoms, 28 footwear, 13 headwear, 36 accessories and its own Lingerie slot with 10 sets. Each garment takes a color from photo swatches and a material from 22 fabric textures. Both go into the prompt: *wearing silk cropped tank top in champagne gold*. The top card also carries **ready-made looks**: one tile styles hair, makeup and the first look's outfit together (clean girl, y2k crop, night out and friends).
 
 ### 👕 Tops
 
@@ -177,13 +177,15 @@ From a neon-lit arcade to a minimalist marble studio, from a rooftop pool to a r
 
 The SESSION section sets what one START SHOOT renders: **shots** (1 to 100), **takes** per shot (1 to 4), **look rotation** (blocks: one look per stretch of shots; mixed: every shot may change), *mood on the subject line* (the expression rides the persona's lead clause instead of standing after the crop, so moods read stronger) and *one seed for every shot* (the whole session on the same noise, a clean A/B where only the framings, poses and looks vary).
 
-The rendered frames land in the preview dock under the panel. In session mode every dock tile is clickable: **re-shoot this frame** queues a single fresh take of that exact shot, same framing, pose and expression, a new roll of the dice on the seed.
+The SESSION section also carries the **model profile**: a named token budget (Z-Image 400, Flux 512, Krea 2 512, Qwen-Image 1024, SDXL 75, or your own number). The linter and the engine's guard read the same string, so what the panel warns about is exactly what the engine trims. Under it, the **prompt template** editor: the sentence the engine fills, slot by slot. A custom slot order for exotic encoders is one edit, the reset button brings the stock order back, and the linter flags unknown slots.
+
+The rendered frames land in the preview dock under the panel. In session mode every dock tile is clickable: **re-shoot this frame** queues a single fresh take of that exact shot, same framing, pose and expression, a new roll of the dice on the seed. Each tile also carries a ★: star the keepers, press ↺ and the panel re-shoots every frame you did not star, each fresh take landing back in its own slot.
 
 ## 🎭 Dramaturgy arcs
 
 A photoshoot reads better as a story than as a list. An arc gives the session an emotional curve: every shot gets an energy level from 0 (quiet point) to 1 (climax), and the engine bends the shoot along it.
 
-**What an arc is.** A named curve plus its expression route. `quiet to climax` walks serene → curious → soft smile → half-smile → excited → laughing out loud; `slow burn` smolders from pensive to a bitten lip; `cold front` hardens from serene to a fierce glare; `story wave` rises, falls and rises again. Pick one in the SESSION section: the chip row shows every arc with its route as a tooltip.
+**What an arc is.** A named curve plus its expression route. `quiet to climax` walks serene → curious → soft smile → half-smile → excited → laughing out loud; `slow burn` smolders from pensive to a bitten lip; `cold front` hardens from serene to a fierce glare; `story wave` rises, falls and rises again. Pick one in the SESSION section: the chip row shows every arc with its route as a tooltip, and the plan prints the route shot by shot, so you see which face each frame wears before you press the button.
 
 **What the curve drives.** With an arc picked, five couplings come alive in the SESSION section, each optional:
 
@@ -228,14 +230,16 @@ The ⚠ badge in the header counts problems in the composed prompt: token overfl
 
 ## 🤖 Models and token budgets
 
-The panel composes for the encoder in front of it. The **prompt style** switch in the right column picks the wording; the token estimate under LIVE TEXT watches the budget.
+The panel composes for the encoder in front of it. The **model profile** in the SESSION section sets the budget and the wording family (SDXL flips to comma tags automatically); the token estimate under LIVE TEXT and the engine's guard both read the same profile.
 
-| Model family | Prompt style | Budget the linter watches |
+| Model profile | Prompt style | Budget |
 | --- | --- | --- |
-| Z-Image, Z-Image Turbo | natural language | 400 tokens per prompt |
+| Z-Image / Turbo | natural language | 400 tokens per prompt |
 | Flux.1 Dev / Schnell | natural language | 512 tokens |
+| Krea 2 | natural language | 512 tokens |
 | Qwen-Image | natural language | 1024 tokens |
 | SDXL base and refines | comma tags | 75-token chunks |
+| Custom | keeps the current style | your own number |
 
 Own lines (the main prompt, the scene line, custom additions) are capped at 300 characters each: past that the encoder stops reading the line as one intent. Token order follows the encoder behavior: the style clause goes first, the mood second, the camera line before the person.
 
@@ -274,7 +278,7 @@ Any text-to-image model works: the node feeds your graph through the standard CL
 Yes. The node outputs PROMPT, NEGATIVE, WIDTH, HEIGHT, SEED and META lists. Wire them into your CLIP Text Encode, Empty Latent Image and KSampler nodes as usual. The model graph stays yours: SDXL, Flux, Z-Image, Qwen-Image, video pipelines, anything that takes a text prompt.
 
 **Can I import characters I already made?**
-If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. Saved prompt texts can be pasted into any own-line field, and the panel's SAVE/LOAD presets keep full setups inside ComfyUI.
+If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. The **character cards** row in PERSONA saves the fields plus the trigger under a name and loads them back in one click. Saved prompt texts can be pasted into any own-line field, and the presets row now exports and imports presets as files, so setups move between installs.
 
 **Will prompts alone give me a fully consistent character?**
 No, and it is worth saying plainly: text locks the description, not the face. The persona fields keep the same wording in every shot, the fixed-seed option keeps the same noise, and a character LoRA is what locks the face itself. The trigger line exists for exactly that.

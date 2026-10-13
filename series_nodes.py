@@ -566,6 +566,18 @@ def _pose_for_level(poses_l, pose, lvl, i):
 TEMPLATE_KEYS = ("person", "scene", "style", "framing", "focus", "pose",
                  "placement", "expression", "lighting", "outfit", "quality")
 
+def _limit_of(token_limit):
+    """any 'Name · N' (or a bare number) carries its own budget, 'off'
+    disables the guard. The panel writes the same string its linter reads,
+    so preview and guard never drift apart"""
+    raw = str(token_limit[0] if isinstance(token_limit, list) and token_limit else token_limit)
+    if raw.strip().lower() == "off":
+        return None
+    # the LAST number wins: model names carry digits too ("Krea 2 · 512")
+    nums = re.findall(r"\d+", raw)
+    return int(nums[-1]) if nums else 512
+
+
 # token order per the encoder's own behaviour: the colour treatment must be
 # read before any colour word in the person block, a mood only shows when it
 # stands early, and the camera line sets the distance before the scene
@@ -896,8 +908,7 @@ class PerfectLabSeries:
                     line = line.replace("{" + key + "}", vals[key])
                 # auto-trim: when over the model's token limit, drop low-priority
                 # slots (lighting -> placement -> style) and recompose
-                limit_now = {"off": None, "SDXL · 75": 75, "512": 512, "1024": 1024}.get(
-                    str(token_limit[0] if isinstance(token_limit, list) and token_limit else token_limit), 512)
+                limit_now = _limit_of(token_limit)
                 dropped = []
                 if limit_now and auto_trim:
                     def _tokens(text):
@@ -946,7 +957,7 @@ class PerfectLabSeries:
             # reads as a clean A/B -- only the framings, poses and looks vary
             shot_seed = int(seed) if fixed_seed else (int(seed) + i) % (1 << 64)
             tokens = max(1, round(len(line) / 3.6))
-            limit = {"off": None, "SDXL · 75": 75, "512": 512, "1024": 1024}.get(str(token_limit[0] if isinstance(token_limit, list) and token_limit else token_limit), 512)
+            limit = _limit_of(token_limit)
             # the energies behind this shot's couplings, read from the same
             # merged tables the swaps used (the user's file included). META
             # carries them next to the arc level, and the sheet's CSV export

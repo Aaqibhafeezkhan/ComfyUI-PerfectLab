@@ -44,6 +44,14 @@ export const TIERS = { "extreme close-up": "close", "close-up": "close", "portra
                        "full body shot": "figure", "wide shot": "figure" };
 // framing labels with their camera-side wording -- mirrors FRAMING_TEXTS in
 // series_nodes.py, proportions included, so the preview matches the server
+// the prompt template's slots, shared with the engine (TEMPLATE_KEYS in
+// series_nodes.py) and the panel's template editor
+export const TEMPLATE_KEYS = ["person", "scene", "style", "framing", "focus", "pose",
+                              "placement", "expression", "lighting", "outfit", "quality"];
+export const DEFAULT_TEMPLATE = ("{style}. {expression}. "
+    + "{framing}, focused on {focus}. {scene}. {lighting}. "
+    + "{person}, {pose}, wearing {outfit}, {placement}. {quality}");
+
 export const FRAMING_TEXTS = {
     "extreme close-up": "extreme close-up shot",
     "close-up": "close-up shot",

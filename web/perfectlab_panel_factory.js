@@ -8,6 +8,8 @@ const RU_KIT = {
     "remove from the library": "убрать из библиотеки", "favourite": "в избранное",
     "ALL": "ВСЕ", "◇ all": "◇ все", "＋ custom…": "＋ своё…", "walk all": "пройти все",
     "SAVE": "СОХР", "LOAD": "ЗАГР", "presets…": "пресеты…", "Preset name:": "Имя пресета:",
+    "download the selected preset as a file": "скачать выбранный пресет файлом",
+    "load a preset from a file": "загрузить пресет из файла",
     "click to use": "нажмите, чтобы применить",
 };
 const isRu = () => (localStorage.getItem("perfectlab_lang") || "ru") === "ru";
@@ -226,7 +228,10 @@ export const libSync = (scope, host, rerender) => {
     });
 };
 
-const GUIDE_V = "1.0.3";
+// the shipped version: the tile cache busters and the panel's update
+// indicator both read this one constant
+export const PL_VERSION = "1.0.3";
+const GUIDE_V = PL_VERSION;
 // the panel package folder name depends on how the node was installed
 // (git clone: PerfectLab, Manager/registry: comfyui-perfectlab), so the
 // tile URLs resolve from this module's own URL, never from a hardcoded
@@ -303,7 +308,10 @@ export const attachPresets = (node, el, widgetName, presetName) => {
         <button class="plp-util-btn" data-act="psave">${trk("SAVE")}</button>
         <button class="plp-util-btn" data-act="pload">${trk("LOAD")}</button>
         <select class="plp-sessions"><option value="">${trk("presets…")}</option></select>
-        <button class="plp-util-btn" data-act="pdel">✕</button>`;
+        <button class="plp-util-btn" data-act="pexport" title="${trk("download the selected preset as a file")}">⬇</button>
+        <button class="plp-util-btn" data-act="pimport" title="${trk("load a preset from a file")}">⬆</button>
+        <button class="plp-util-btn" data-act="pdel">✕</button>
+        <input type="file" accept=".json" style="display:none" data-pimportfile>`;
     row.addEventListener("mousedown", e => e.stopPropagation());
     const sel = row.querySelector("select");
     const list = async () => {
@@ -340,6 +348,41 @@ export const attachPresets = (node, el, widgetName, presetName) => {
         if (!sel.value) return;
         await plDrop(`${UD}/${sel.value}`);
         list();
+    };
+    // share setups between installs: the selected preset downloads as a
+    // .json, and an imported file lands back in this node's preset shelf
+    row.querySelector('[data-act="pexport"]').onclick = async (e) => {
+        e.stopPropagation();
+        if (!sel.value) return;
+        try {
+            const v = await plRead(`${UD}/${sel.value}`);
+            const blob = new Blob([typeof v === "string" ? v : JSON.stringify(v, null, 2)],
+                                   { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = sel.value.replace(/\.json$/, "") + ".json";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (err) {}
+    };
+    const fileInp = row.querySelector("[data-pimportfile]");
+    row.querySelector('[data-act="pimport"]').onclick = (e) => {
+        e.stopPropagation();
+        fileInp.click();
+    };
+    fileInp.onchange = async () => {
+        const f = fileInp.files && fileInp.files[0];
+        if (!f) return;
+        try {
+            const text = await f.text();
+            JSON.parse(text);   // reject a broken file before it lands
+            const base = f.name.replace(/\.json$/, "").replace(/^.*__/, "");
+            const name = prompt(trk("Preset name:"), base);
+            if (!name) return;
+            await plWrite(`${UD}/${presetName}__${encodeURIComponent(name)}.json`, text);
+            list();
+        } catch (err) {}
+        fileInp.value = "";
     };
     (el.querySelector(".plp-util-host") || el).prepend(row);
     list();
