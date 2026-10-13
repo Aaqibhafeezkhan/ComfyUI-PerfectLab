@@ -9,27 +9,27 @@
 import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop }
-    from "./perfectlab_panel_factory.js?v=1.0.2";
+    from "./perfectlab_panel_factory.js?v=1.0.3";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy }
-    from "./perfectlab_lib.js?v=1.0.2";
+    from "./perfectlab_lib.js?v=1.0.3";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.2";
+         RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.3";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.0.2";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.0.3";
     document.head.append(link);
 }
 
-const GUIDE_V = "1.0.2";
+const GUIDE_V = "1.0.3";
 // the user's override files (own arcs, tone swaps, energy re-tunes) --
 // the engine reads them from the userdata tree, the preview mirrors them
 // so LIVE TEXT shows what will actually render
@@ -577,7 +577,7 @@ const wcGet = (name) => {
     WC_CACHE.set(name, null);   // missing until proven otherwise
     // the user's own copy (the wildcard manager writes it) wins; the
     // bundled starters ride with the package
-    const pkg = () => fetch(`/extensions/PerfectLab/wildcards/${encodeURIComponent(name)}.txt`)
+    const pkg = () => fetch(new URL(`wildcards/${encodeURIComponent(name)}.txt`, import.meta.url).href)
         .then(r => (r.ok ? r.text() : null)).catch(() => null);
     plRead(`perfectlab_wildcards/${name}.txt`)
         .then(t => t || pkg())
@@ -1407,7 +1407,7 @@ function buildPanel(node) {
             <svg viewBox="0 0 24 24" width="13" height="13"><path fill="currentColor" d="M21.9 4.6c.3-1.3-.8-2-1.9-1.6L2.7 9.7c-1.3.5-1.2 1.9-.1 2.3l4.4 1.4 1.7 5.2c.3.9 1.5 1.2 2.2.5l2.3-2.1 4.4 3.2c.9.6 2.1.2 2.3-.9l3.3-14.7zM8.2 12.9l9.4-5.9c.4-.3.8.2.5.6l-7.7 7-.3 3.1-1.9-4.8z"/></svg>
             @PerfectJohny</a>
         <div class="plx-rail-keys">${tr("X · clear card")}<br>${tr("Shift+X · clear section")}<br>${tr("Alt+X · reset all")}</div>
-        <div class="plx-rail-ver">PerfectLab v1.0.2</div>`;
+        <div class="plx-rail-ver">PerfectLab v1.0.3</div>`;
         // the category row: one click opens (and selects); a second closes
         rail.querySelectorAll("[data-sec]").forEach(r => r.onclick = e => {
             if (e.target.dataset.off !== undefined || e.target.dataset.subnav) return;
@@ -1483,7 +1483,7 @@ function buildPanel(node) {
     function wcLoad(name) {
         // the user's copy first, the bundled starter as the base
         return plRead(`perfectlab_wildcards/${name}.txt`)
-            .then(t => t || fetch(`/extensions/PerfectLab/wildcards/${encodeURIComponent(name)}.txt`)
+            .then(t => t || fetch(new URL(`wildcards/${encodeURIComponent(name)}.txt`, import.meta.url).href)
                 .then(r => r.ok ? r.text() : ""))
             .catch(() => "");
     }

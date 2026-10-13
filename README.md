@@ -270,6 +270,9 @@ Yes. Every frame carries a META line with the full recipe (framing tier, seed, t
 **Does it work with my checkpoint?**
 Any text-to-image model works: the node feeds your graph through the standard CLIP Text Encode inputs. The prompt style switch and the token budget cover the SDXL tags family and the natural-language families (Z-Image, Flux, Qwen-Image).
 
+**Do the preview tiles need the internet?**
+No. All 700 preview tiles ship inside the package and load from your disk, so the panel works fully offline.
+
 **Is the interface translated?**
 The RU/EN button in the header switches the interface language; the choice is remembered per browser. Library captions are translated too, the prompts stay English on purpose: English is what the encoders read best.
 
