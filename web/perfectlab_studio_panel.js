@@ -10,30 +10,30 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.0.3";
+    from "./perfectlab_panel_factory.js?v=1.1.0";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.0.3";
+    from "./perfectlab_lib.js?v=1.1.0";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.0.3";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.0";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.0.3";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.0";
     document.head.append(link);
 }
 
-const GUIDE_V = "1.0.3";
+const GUIDE_V = "1.1.0";
 // the user's override files (own arcs, tone swaps, energy re-tunes) --
 // the engine reads them from the userdata tree, the preview mirrors them
 // so LIVE TEXT shows what will actually render
