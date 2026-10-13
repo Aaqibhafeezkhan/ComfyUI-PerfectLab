@@ -16,7 +16,7 @@ import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
-         arcSeq }
+         arcSeq, FACE_FOCUS, TIER_FORMATS }
     from "./perfectlab_lib.js?v=1.0.3";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
@@ -129,6 +129,12 @@ const RU = {
     "negative": "негатив", "variations": "вариации",
     "picked": "выбрано", "picks active": "есть выборы", "on": "вкл",
     "model profile": "профиль модели", "Custom": "Свой",
+    "re-roll every creative section -- the persona and your own words stay": "перебросить все творческие секции — персона и ваши слова останутся",
+    "a face focus like": "фокус на лицо вроде",
+    "does not survive figure crops -- the engine swaps it to the full figure there.": "не выживает на общих планах — движок заменит его там на «всю фигуру».",
+    "turns a face focus into the silhouette.": "превращает фокус на лицо в «силуэт».",
+    "drops out of the format walk on crops it contradicts -- pin it if you insist.": "выпадет из прохода форматов на противоречащих кадрах — закрепите, если настаиваете.",
+    "conflict": "конфликт",
     "re-shoot every frame you did not keep": "переснять все кадры без звёзд",
     "ready-made looks": "готовые образы", "hair, makeup and the first look's outfit in one click": "причёска, макияж и наряд первого образа одним кликом",
     "the arc's expression route": "роут выражений по дуге",
@@ -1434,6 +1440,7 @@ function buildPanel(node) {
             ${ui.results && ui.results.length
                 ? `<button class="plx-btn ${ui.dockOpen ? "act" : ""}" data-results
                      title="${tr("LAST SHOOT")}">🖼 ${ui.results.length}</button>` : ""}
+            <button class="plx-reset" data-inspire title="${tr("re-roll every creative section -- the persona and your own words stay")}">🎲</button>
             <button class="plx-reset" data-undo title="${tr("undo the last pick")}">↶</button>
             <button class="plx-reset" data-redo title="${tr("redo")}">↷</button>
             <button class="plx-reset plx-reset-all" data-resetall title="${tr("clear every pick")}">↺ ${tr("RESET ALL")}</button>
@@ -1468,6 +1475,7 @@ function buildPanel(node) {
             sbox.onkeydown = (e) => { if (e.key === "Escape") { sbox.value = ""; hideSearch(); } };
         }
         header.querySelector("[data-resetall]").onclick = () => { resetAll(); };
+        header.querySelector("[data-inspire]").onclick = () => inspire();
         header.querySelector("[data-undo]").onclick = () => undo();
         header.querySelector("[data-redo]").onclick = () => redo();
     }
@@ -2078,6 +2086,27 @@ function buildPanel(node) {
             if (!tmplStr.includes("{person}")) issues.push({
                 t: "template", d: tr("The template has no {person} slot -- the persona never reaches the prompt.") });
         }
+        // pre-flight conflicts: the swaps the engine will make silently,
+        // said out loud BEFORE the GPU pays for them
+        const pickedFrames = (s.camera.framings.mode === "pin" ? [s.camera.framings.pin] : (s.camera.framings.set || []))
+            .map(i => FRAMING_LIB[i]).filter(Boolean);
+        const pickedFocus = (s.camera.focus.mode === "pin" ? [FOCUS_LIB[s.camera.focus.pin]] : (s.camera.focus.set || []).map(i => FOCUS_LIB[i]))
+            .filter(Boolean);
+        const pickedPoses = (s.pose.poses.mode === "pin" ? [POSE_LIB[s.pose.poses.pin]] : (s.pose.poses.set || []).map(i => POSE_LIB[i]))
+            .filter(Boolean);
+        const faceFocus = pickedFocus.filter(f => FACE_FOCUS.includes(f));
+        if (faceFocus.length && pickedFrames.some(f => TIERS[f] === "figure"))
+            issues.push({ t: "conflict", d: `${tr("a face focus like")} "${esc(disp(faceFocus[0]))}" ${tr("does not survive figure crops -- the engine swaps it to the full figure there.")}` });
+        const backPose = pickedPoses.find(pp => pp.includes("back to the camera"));
+        if (faceFocus.length && backPose)
+            issues.push({ t: "conflict", d: `"${esc(disp(backPose))}" ${tr("turns a face focus into the silhouette.")}` });
+        if (pickedFrames.length && s.camera.formats.mode !== "pin") {
+            const fmtSet = (s.camera.formats.set || []).map(i => FORMAT_LIB[i]).filter(f => f && f !== "follows framing");
+            const allowed = new Set(pickedFrames.flatMap(f => TIER_FORMATS[TIERS[f]] || []));
+            const doomed = fmtSet.filter(f => !allowed.has(f));
+            if (doomed.length)
+                issues.push({ t: "conflict", d: `${doomed.map(f => `"${esc(disp(f))}"`).join(", ")} ${tr("drops out of the format walk on crops it contradicts -- pin it if you insist.")}` });
+        }
         // negative enabled but empty
         if (s.negative.enabled && !s.negative.text
             && !(s.negative.presets || []).length)
@@ -2285,6 +2314,44 @@ function buildPanel(node) {
             setLabel(`${tr("SHOT")} ${(slot >= 0 ? 1 : imgs.length)} · ${Math.round((Date.now() - t0) / 1000)}${LANG === "ru" ? " с" : "s"}`);
         };
         poll();
+    }
+    // the inspiration roll: one click re-rolls every creative section.
+    // The persona, the trigger, your own words, the negative, the session
+    // and the output formats stay untouched; sync() lands the previous
+    // snapshot on the undo stack, so Ctrl+Z takes the whole roll back
+    function inspire() {
+        const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const pickSome = (arr, n) => {
+            const pool = [...arr];
+            const out = [];
+            while (out.length < n && pool.length) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+            return out;
+        };
+        const l0 = (state.look.looks || [])[0];
+        if (!l0) return;
+        l0.top = rnd(TOPS_LIB); l0.bottom = rnd(BOTTOMS_LIB); l0.footwear = rnd(FOOTWEAR_LIB);
+        l0.top_color = rnd(LOOK_COLORS)[0]; l0.bottom_color = rnd(LOOK_COLORS)[0];
+        l0.footwear_color = rnd(FOOTWEAR_COLORS)[0];
+        l0.top_material = rnd(MATERIALS); l0.bottom_material = rnd(MATERIALS);
+        l0.footwear_material = rnd(FOOTWEAR_MATERIALS);
+        l0.accessories = pickSome(ACCESSORIES_LIB, 1 + Math.floor(Math.random() * 2));
+        l0.acc_color = rnd(ACC_COLORS)[0];
+        state.scene.location = rnd(LOCATIONS);
+        state.scene.weather = rnd(WEATHER);
+        state.light.setup = rnd(LIGHT_SETUPS);
+        state.light.hour = -1;
+        state.scene.props = pickSome(PROPS_LIB, 1 + Math.floor(Math.random() * 2));
+        state.style.grade = rnd(STYLES);
+        state.style.film = rnd(FILMS);
+        const cols = pickSome(LOOK_COLORS, 3).map(c2 => c2[0]);
+        state.style.palette = `${rnd(PALETTE_MODS)} ${cols.join(", ")}`;
+        state.camera.framings = { mode: "multi", set: pickSome(FRAMING_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 2)), pin: null };
+        state.camera.focus = { mode: "multi", set: pickSome(FOCUS_LIB.map((_, i) => i), 1 + Math.floor(Math.random() * 2)), pin: null };
+        state.camera.lens = Math.random() < 0.4 ? rnd(LENS_LIB) : "";
+        state.camera.composition = Math.random() < 0.35 ? rnd(COMPOSITION_LIB) : "";
+        state.pose.poses = { mode: "multi", set: pickSome(POSE_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
+        state.expression.expressions = { mode: "multi", set: pickSome(EXPRESSION_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
+        sync();
     }
     async function startShoot() {
         // a re-shoot order rode along in the queued prompt -- drop it after

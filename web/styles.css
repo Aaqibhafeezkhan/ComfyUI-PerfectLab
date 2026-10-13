@@ -719,6 +719,7 @@
 .plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:720px;
        background:#1a1a21; border-radius:14px; color:#d5d2de;
        font:11px/1.4 system-ui, sans-serif; overflow:hidden;
+       padding-bottom:16px;
        border:1px solid #3a3a48; box-sizing:border-box;
        box-shadow:0 0 0 1px #00000066; }
 .plx * { box-sizing:border-box; }

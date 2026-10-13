@@ -226,7 +226,11 @@ Any own-line and the custom field understand:
 
 ## ⚠️ Linter
 
-The ⚠ badge in the header counts problems in the composed prompt: token overflow (400 is the Z-Image budget), own lines over 300 characters, duplicates, unbalanced braces, choices without a `|`, missing wildcard files, an empty negative. Click for the list.
+The ⚠ badge in the header counts problems in the composed prompt: token overflow against the model profile's budget, own lines over 300 characters, duplicates, unbalanced braces, choices without a `|`, missing wildcard files, an empty negative. Click for the list.
+
+It also counts **conflicts**: the swaps the engine would make silently, said out loud before the GPU pays for them. A face focus (the face, the eyes, the lips) does not survive figure-tier crops, the engine swaps it to the full figure there. A back-to-camera pose reads the silhouette, so a face focus turns into one. A walked format feed drops every ratio the picked crops contradict, while a pinned format is a deliberate ask and passes as-is. Each warning names the values and the swap: change the pick, or pin it on purpose.
+
+The **🎲 inspiration roll** in the header re-rolls every creative section at once: garments, colors, materials, accessories, location, weather, light, props, grade, film, palette, framings, focus, lens, poses and expressions. The persona, the trigger, your own words, the negative, the session settings and the output formats stay untouched. The whole roll is one undo step: Ctrl+Z takes it back.
 
 ## 🤖 Models and token budgets
 

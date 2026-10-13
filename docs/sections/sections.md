@@ -314,10 +314,21 @@ survive node updates, and win over the bundled starters with the same
 name.
 
 The **linter badge** in the header lights up when the composed prompt has
-problems: token overflow (400 is the Z-Image budget), an own line over
-300 characters, a duplicated value, unbalanced braces, a choice without
-`|`, a wildcard with no file, or a negative that is ON but empty. Click
-the badge for the one-line list of each.
+problems: token overflow against the model profile's budget, an own line
+over 300 characters, a duplicated value, unbalanced braces, a choice
+without `|`, a wildcard with no file, or a negative that is ON but empty.
+It also lists **conflicts**: the swaps the engine would make silently. A
+face focus does not survive figure-tier crops, a back-to-camera pose reads
+the silhouette, a walked format feed drops the ratios the picked crops
+contradict (a pinned format passes as-is, the user asked for it). Each
+line names the values and the swap.
+
+The **🎲 inspiration roll** in the header re-rolls every creative section
+in one click: garments, colors, materials, accessories, location, weather,
+light, props, grade, film, palette, framings, focus, poses, expressions.
+The persona, the trigger, your own words, the negative, the session
+settings and the output formats stay untouched, and the whole roll is one
+undo step.
 
 ## How many picks is too many
 
