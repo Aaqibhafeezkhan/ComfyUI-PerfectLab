@@ -10,30 +10,30 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.0";
+    from "./perfectlab_panel_factory.js?v=1.1.1";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.0";
+    from "./perfectlab_lib.js?v=1.1.1";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.0";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.1";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.0";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.1";
     document.head.append(link);
 }
 
-const GUIDE_V = "1.1.0";
+const GUIDE_V = "1.1.1";
 // the user's override files (own arcs, tone swaps, energy re-tunes) --
 // the engine reads them from the userdata tree, the preview mirrors them
 // so LIVE TEXT shows what will actually render
@@ -129,6 +129,7 @@ const RU = {
     "negative": "негатив", "variations": "вариации",
     "picked": "выбрано", "picks active": "есть выборы", "on": "вкл",
     "model profile": "профиль модели", "Custom": "Свой",
+    "preview tile size": "размер плиток превью — клик переключает",
     "re-roll every creative section -- the persona and your own words stay": "перебросить все творческие секции — персона и ваши слова останутся",
     "a face focus like": "фокус на лицо вроде",
     "does not survive figure crops -- the engine swaps it to the full figure there.": "не выживает на общих планах — движок заменит его там на «всю фигуру».",
@@ -1146,6 +1147,28 @@ const SUB_RENDER = {
 
 function buildPanel(node) {
     const state = readState(node);
+    // preview tile size: M / L / XL / S cycles from the header, remembered
+    // per browser -- bigger tiles are the point of a taller node
+    const TILE_SIZES = {
+        M: { cols: 4, colsTxt: 3, cols6: 6, dock: 8, font: 1, xcols: 4, xtight: 4 },
+        L: { cols: 3, colsTxt: 2, cols6: 4, dock: 6, font: 1.2, xcols: 3, xtight: 3 },
+        XL: { cols: 2, colsTxt: 2, cols6: 3, dock: 4, font: 1.45, xcols: 2, xtight: 2 },
+        S: { cols: 6, colsTxt: 4, cols6: 8, dock: 10, font: 0.85, xcols: 6, xtight: 6 },
+    };
+    let tileSize = localStorage.getItem("plx_tiles") || "M";
+    if (!TILE_SIZES[tileSize]) tileSize = "M";
+    const applyTiles = () => {
+        const t = TILE_SIZES[tileSize];
+        const rs = document.documentElement.style;
+        rs.setProperty("--plp-cols", t.cols);
+        rs.setProperty("--plp-cols-txt", t.colsTxt);
+        rs.setProperty("--plp-cols6", t.cols6);
+        rs.setProperty("--plx-dock-cols", t.dock);
+        rs.setProperty("--plp-font", t.font);
+        rs.setProperty("--plx-cols", t.xcols);
+        rs.setProperty("--plx-cols-tight", t.xtight);
+    };
+    applyTiles();
     // states saved before the model profiles carry no token_limit: the
     // engine would guard at its own default while the linter watched the
     // profile's -- normalize both to the same string
@@ -1440,6 +1463,7 @@ function buildPanel(node) {
             ${ui.results && ui.results.length
                 ? `<button class="plx-btn ${ui.dockOpen ? "act" : ""}" data-results
                      title="${tr("LAST SHOOT")}">🖼 ${ui.results.length}</button>` : ""}
+            <button class="plx-reset" data-tiles title="${tr("preview tile size")}">${tileSize.toUpperCase()}</button>
             <button class="plx-reset" data-inspire title="${tr("re-roll every creative section -- the persona and your own words stay")}">🎲</button>
             <button class="plx-reset" data-undo title="${tr("undo the last pick")}">↶</button>
             <button class="plx-reset" data-redo title="${tr("redo")}">↷</button>
@@ -1475,6 +1499,13 @@ function buildPanel(node) {
             sbox.onkeydown = (e) => { if (e.key === "Escape") { sbox.value = ""; hideSearch(); } };
         }
         header.querySelector("[data-resetall]").onclick = () => { resetAll(); };
+        header.querySelector("[data-tiles]").onclick = () => {
+            const order = ["M", "L", "XL", "S"];
+            tileSize = order[(order.indexOf(tileSize) + 1) % order.length];
+            localStorage.setItem("plx_tiles", tileSize);
+            applyTiles();
+            renderHeader();
+        };
         header.querySelector("[data-inspire]").onclick = () => inspire();
         header.querySelector("[data-undo]").onclick = () => undo();
         header.querySelector("[data-redo]").onclick = () => redo();
@@ -2221,7 +2252,7 @@ function buildPanel(node) {
                     ? `<button class="plx-nav plx-rej" data-reshootrej title="${tr("re-shoot every frame you did not keep")}">↺ ${ui.results.filter(r => !r.keep).length}</button>` : ""}
                 <button class="plx-nav" data-close title="${tr("close the results, back to the panel")}">✕</button>
             </div>
-            <div class="plx-dock-tiles" style="grid-template-columns:repeat(8, 1fr)">${slice.map((src, k) => `
+            <div class="plx-dock-tiles" style="grid-template-columns:repeat(var(--plx-dock-cols, 8), 1fr)">${slice.map((src, k) => `
                 <div class="plx-tile ${ui.results && reshootable ? "pick" : ""} ${ui.results && ui.results[ui.dockPage * per + k]?.keep ? "kept" : ""}" data-t="${ui.dockPage * per + k}" title="${ui.results ? tr("re-shoot this frame") : ""}">
                     ${src.startsWith("data:") || src.includes("/view?") || src.includes("filename=")
                         ? `<img src="${src}">` : `<img src="${src}?v=${GUIDE_V}">`}

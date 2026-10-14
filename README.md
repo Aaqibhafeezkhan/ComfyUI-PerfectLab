@@ -284,6 +284,9 @@ Yes. The node outputs PROMPT, NEGATIVE, WIDTH, HEIGHT, SEED and META lists. Wire
 **Can I import characters I already made?**
 If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. The **character cards** row in PERSONA saves the fields plus the trigger under a name and loads them back in one click. Saved prompt texts can be pasted into any own-line field, and the presets row now exports and imports presets as files, so setups move between installs.
 
+**Can I make the preview tiles bigger?**
+The **▦ button** in the header cycles the tile size (M / L / XL / S), remembered per browser. The node itself auto-fits its height to the content, so there is no separate resize to fight with: more picks, taller node.
+
 **Will prompts alone give me a fully consistent character?**
 No, and it is worth saying plainly: text locks the description, not the face. The persona fields keep the same wording in every shot, the fixed-seed option keeps the same noise, and a character LoRA is what locks the face itself. The trigger line exists for exactly that.
 

@@ -313,6 +313,11 @@ panel. Your files live in the profile folder (`perfectlab_wildcards/`),
 survive node updates, and win over the bundled starters with the same
 name.
 
+The **▦ tile-size button** in the header cycles the preview tile size
+(M / L / XL / S): fewer tiles per row at the larger steps, the choice is
+remembered per browser. The node auto-fits its height to the content, so
+the whole library wall stays visible without a scrollbar fight.
+
 The **linter badge** in the header lights up when the composed prompt has
 problems: token overflow against the model profile's budget, an own line
 over 300 characters, a duplicated value, unbalanced braces, a choice
