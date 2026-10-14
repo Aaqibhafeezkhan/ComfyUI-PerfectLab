@@ -720,7 +720,7 @@
    plays no slow animation; internal areas scroll instead.
    Palette: surfaces two steps above the background so the layout reads at
    screenshot scale -- the first cut was 91% near-black and invisible. */
-.plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:100%; min-height:420px;
+.plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:720px;
        background:#1a1a21; border-radius:14px; color:#d5d2de;
        font-family:system-ui, sans-serif; font-size:calc(15px * var(--ui-scale, 1)) !important;
        line-height:1.4; overflow:hidden;
