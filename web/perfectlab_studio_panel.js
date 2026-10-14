@@ -10,30 +10,30 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.1";
+    from "./perfectlab_panel_factory.js?v=1.1.2";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.1";
+    from "./perfectlab_lib.js?v=1.1.2";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.1";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.2";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.1";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.2";
     document.head.append(link);
 }
 
-const GUIDE_V = "1.1.1";
+const GUIDE_V = "1.1.2";
 // the user's override files (own arcs, tone swaps, energy re-tunes) --
 // the engine reads them from the userdata tree, the preview mirrors them
 // so LIVE TEXT shows what will actually render
@@ -769,6 +769,22 @@ const liveText = (s, seed = 0) => {
     let filled = tmpl;
     for (const k of TEMPLATE_KEYS) filled = filled.split("{" + k + "}").join(slotVals[k] || "");
     if (!focusV) filled = filled.replace(/focused on\s*(\.|,|$)\s*/g, " ");
+    // dissolve the holes empty slots leave: drop letter-less sentences,
+    // tidy the separator runs -- a reset state reads clean instead of
+    // ". . , focused on the face. . ." and a fully picked state is
+    // untouched
+    let clean = filled.split(/(?<=\.)\s+/)
+        .filter(sg2 => /[a-z]/i.test(sg2)).join(" ");
+    for (let ci = 0; ci < 3; ci++) {
+        clean = clean
+            .replace(/(?:\s*,\s*)+/g, ", ")
+            .replace(/\bwearing[\s,]*(?=[.,]|$)/gi, "")
+            .replace(/\s*,\s*(?=[.]|$)/g, "")
+            .replace(/\.\s*,\s*/g, ". ")
+            .replace(/\s*\.\s*\./g, ".")
+            .replace(/^[,\s]+/, "");
+    }
+    filled = clean.replace(/\s+([.,])/g, "$1").replace(/^[.,\s]+/, "").replace(/\s{2,}/g, " ").trim();
     const text = resolveChoices(resolveWildcards(filled, seed, wcGet), seed);
     return { text, raw, parts: parts.filter(Boolean),
              tokens: Math.max(1, Math.round(text.length / 3.6)) };

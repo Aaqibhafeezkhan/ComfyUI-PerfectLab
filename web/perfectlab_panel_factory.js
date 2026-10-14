@@ -1,6 +1,6 @@
 // Shared panel kit: favourites, multi-select, presets, uniform tiles and
 // height fitting -- one implementation used by every PerfectLab sub-node.
-import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.1";
+import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.2";
 
 // mirrors the panel: the caption translates, the value stays English
 const RU_KIT = {
@@ -230,7 +230,7 @@ export const libSync = (scope, host, rerender) => {
 
 // the shipped version: the tile cache busters and the panel's update
 // indicator both read this one constant
-export const PL_VERSION = "1.1.1";
+export const PL_VERSION = "1.1.2";
 const GUIDE_V = PL_VERSION;
 // the panel package folder name depends on how the node was installed
 // (git clone: PerfectLab, Manager/registry: comfyui-perfectlab), so the
@@ -393,6 +393,21 @@ export const fitNode = (node, el, widget, extraNative) => {
     if (!el.isConnected) return;
     const h = el.scrollHeight;
     if (h < 40) return;
+    // the panel grows with its content: bigger preview tiles overflow the
+    // columns, and the panel takes exactly the deficit. Content-driven
+    // only -- the node wraps around it, no feedback loop is possible.
+    // Shrinking steps back toward the floor and stops the moment the
+    // columns fill again (one overshoot, by design)
+    const cols = [...el.querySelectorAll(".plx-rail, .plx-center, .plx-right")];
+    const deficit = Math.max(0, ...cols.map(c => c.scrollHeight - c.clientHeight));
+    if (deficit > 2) {
+        el.style.height = (el.offsetHeight + deficit) + "px";
+        widget._plxGrew = true;
+    } else if (el.offsetHeight - 720 > 2 && !widget._plxGrew) {
+        el.style.height = Math.max(720, el.offsetHeight - 60) + "px";
+    } else {
+        widget._plxGrew = false;
+    }
     // the target sticks unless the content really grew: scrollHeight of a
     // stretched panel echoes its own client height (+4 per tick otherwise,
     // the slow runaway). A manual drag taller persists up to 1200px of
