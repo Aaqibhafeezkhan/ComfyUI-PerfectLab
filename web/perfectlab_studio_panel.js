@@ -130,6 +130,7 @@ const RU = {
     "picked": "выбрано", "picks active": "есть выборы", "on": "вкл",
     "model profile": "профиль модели", "Custom": "Свой",
     "preview tile size": "размер плиток превью — клик переключает",
+    "interface scale: text and buttons": "масштаб интерфейса: текст и кнопки",
     "re-roll every creative section -- the persona and your own words stay": "перебросить все творческие секции — персона и ваши слова останутся",
     "a face focus like": "фокус на лицо вроде",
     "does not survive figure crops -- the engine swaps it to the full figure there.": "не выживает на общих планах — движок заменит его там на «всю фигуру».",
@@ -1150,23 +1151,27 @@ function buildPanel(node) {
     // preview tile size: M / L / XL / S cycles from the header, remembered
     // per browser -- bigger tiles are the point of a taller node
     const TILE_SIZES = {
-        M: { cols: 4, colsTxt: 3, cols6: 6, dock: 8, font: 1, xcols: 4, xtight: 4 },
-        L: { cols: 3, colsTxt: 2, cols6: 4, dock: 6, font: 1.2, xcols: 3, xtight: 3 },
-        XL: { cols: 2, colsTxt: 2, cols6: 3, dock: 4, font: 1.45, xcols: 2, xtight: 2 },
-        S: { cols: 6, colsTxt: 4, cols6: 8, dock: 10, font: 0.85, xcols: 6, xtight: 6 },
+        S: { tile: "104px", tile6: "84px", tileW: "104px", tileT: "96px", dock: "128px", font: 0.9 },
+        M: { tile: "140px", tile6: "110px", tileW: "140px", tileT: "130px", dock: "170px", font: 1 },
+        L: { tile: "184px", tile6: "140px", tileW: "184px", tileT: "170px", dock: "220px", font: 1.15 },
+        XL: { tile: "236px", tile6: "180px", tileW: "236px", tileT: "220px", dock: "280px", font: 1.3 },
     };
     let tileSize = localStorage.getItem("plx_tiles") || "M";
     if (!TILE_SIZES[tileSize]) tileSize = "M";
+    let uiScale = parseFloat(localStorage.getItem("plx_uiscale")) || 1;
+    document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+    const applyUiScale = () => {
+        el.style.fontSize = `calc(15px * var(--ui-scale, 1))`;
+    };
     const applyTiles = () => {
         const t = TILE_SIZES[tileSize];
         const rs = document.documentElement.style;
-        rs.setProperty("--plp-cols", t.cols);
-        rs.setProperty("--plp-cols-txt", t.colsTxt);
-        rs.setProperty("--plp-cols6", t.cols6);
-        rs.setProperty("--plx-dock-cols", t.dock);
+        rs.setProperty("--tile-w", t.tile);
+        rs.setProperty("--tile-w6", t.tile6);
+        rs.setProperty("--tile-wx", t.tileW);
+        rs.setProperty("--tile-wt", t.tileT);
+        rs.setProperty("--dock-w", t.dock);
         rs.setProperty("--plp-font", t.font);
-        rs.setProperty("--plx-cols", t.xcols);
-        rs.setProperty("--plx-cols-tight", t.xtight);
     };
     applyTiles();
     // states saved before the model profiles carry no token_limit: the
@@ -1235,7 +1240,6 @@ function buildPanel(node) {
                                     { serialize: false, hideOnZoom: false });
     const i = node.widgets.indexOf(widget);
     if (i > 0) { node.widgets.splice(i, 1); node.widgets.unshift(widget); }
-
     // the panel header owns the controls -- the native widgets only carry
     // values into the queue, so they leave the visual surface
     node.widgets.forEach(w => {
@@ -1272,6 +1276,7 @@ function buildPanel(node) {
         if (node.size[0] < 1200) node.setSize([1200, node.size[1]]);
     };
     requestAnimationFrame(() => requestAnimationFrame(syncSize));
+    applyUiScale();   // after el exists: the font scale rides an inline style
     setTimeout(syncSize, 400);
     setTimeout(syncSize, 1200);
     const sizeObs = new ResizeObserver(() => requestAnimationFrame(syncSize));
@@ -1369,14 +1374,25 @@ function buildPanel(node) {
             if (sub === "grade") s.style.grade = rnd(STYLES);
             if (sub === "film") s.style.film = rnd(FILMS);
         } else if (sec === "camera") {
-            if (sub === "framings") s.camera.framings = { mode: "multi", set: rndN(FRAMING_LIB.map((_, i) => i), 2), pin: null };
-            if (sub === "focus") s.camera.focus = { mode: "multi", set: rndN(FOCUS_LIB.map((_, i) => i), 2), pin: null };
+            // single shot: one pick per slot (pin); session: short walks,
+            // and the focus walk only holds values that survive the picked
+            // framings' tiers
+            if (sub === "framings") s.camera.framings = isSingle()
+                ? { mode: "pin", set: [], pin: Math.floor(Math.random() * FRAMING_LIB.length) }
+                : { mode: "multi", set: rndN(FRAMING_LIB.map((_, i) => i), 2), pin: null };
+            if (sub === "focus") s.camera.focus = isSingle()
+                ? { mode: "pin", set: [], pin: rnd(coherentFocus(s.camera.framings)) }
+                : { mode: "multi", set: rndN(coherentFocus(s.camera.framings), 2), pin: null };
             if (sub === "lens") s.camera.lens = rnd(LENS_LIB);
             else if (sub === "formats") s.camera.formats = { mode: "multi", set: rndN(FORMAT_LIB.map((_, i) => i), 2), pin: 0 };
         } else if (sec === "pose") {
-            s.pose.poses = { mode: "multi", set: rndN(POSE_LIB.map((_, i) => i), 3), pin: null };
+            s.pose.poses = isSingle()
+                ? { mode: "pin", set: [], pin: Math.floor(Math.random() * POSE_LIB.length) }
+                : { mode: "multi", set: rndN(POSE_LIB.map((_, i) => i), 3), pin: null };
         } else if (sec === "expression") {
-            s.expression.expressions = { mode: "multi", set: rndN(EXPRESSION_LIB.map((_, i) => i), 2), pin: null };
+            s.expression.expressions = isSingle()
+                ? { mode: "pin", set: [], pin: Math.floor(Math.random() * EXPRESSION_LIB.length) }
+                : { mode: "multi", set: rndN(EXPRESSION_LIB.map((_, i) => i), 2), pin: null };
         }
         sync();
     };
@@ -1464,6 +1480,7 @@ function buildPanel(node) {
                 ? `<button class="plx-btn ${ui.dockOpen ? "act" : ""}" data-results
                      title="${tr("LAST SHOOT")}">🖼 ${ui.results.length}</button>` : ""}
             <button class="plx-reset" data-tiles title="${tr("preview tile size")}">${tileSize.toUpperCase()}</button>
+            <button class="plx-reset" data-uiscale title="${tr("interface scale: text and buttons")}">${Math.round(uiScale * 100)}%</button>
             <button class="plx-reset" data-inspire title="${tr("re-roll every creative section -- the persona and your own words stay")}">🎲</button>
             <button class="plx-reset" data-undo title="${tr("undo the last pick")}">↶</button>
             <button class="plx-reset" data-redo title="${tr("redo")}">↷</button>
@@ -1499,11 +1516,19 @@ function buildPanel(node) {
             sbox.onkeydown = (e) => { if (e.key === "Escape") { sbox.value = ""; hideSearch(); } };
         }
         header.querySelector("[data-resetall]").onclick = () => { resetAll(); };
+        header.querySelector("[data-uiscale]").onclick = () => {
+            const order = [1, 1.15, 1.3];
+            uiScale = order[(order.indexOf(uiScale) + 1) % order.length];
+            localStorage.setItem("plx_uiscale", String(uiScale));
+            document.documentElement.style.setProperty("--ui-scale", String(uiScale));
+            renderHeader();
+        };
         header.querySelector("[data-tiles]").onclick = () => {
             const order = ["M", "L", "XL", "S"];
             tileSize = order[(order.indexOf(tileSize) + 1) % order.length];
             localStorage.setItem("plx_tiles", tileSize);
             applyTiles();
+            applyUiScale();
             renderHeader();
         };
         header.querySelector("[data-inspire]").onclick = () => inspire();
@@ -2252,7 +2277,7 @@ function buildPanel(node) {
                     ? `<button class="plx-nav plx-rej" data-reshootrej title="${tr("re-shoot every frame you did not keep")}">↺ ${ui.results.filter(r => !r.keep).length}</button>` : ""}
                 <button class="plx-nav" data-close title="${tr("close the results, back to the panel")}">✕</button>
             </div>
-            <div class="plx-dock-tiles" style="grid-template-columns:repeat(var(--plx-dock-cols, 8), 1fr)">${slice.map((src, k) => `
+            <div class="plx-dock-tiles" style="grid-template-columns:repeat(auto-fill, var(--dock-w, 170px))">${slice.map((src, k) => `
                 <div class="plx-tile ${ui.results && reshootable ? "pick" : ""} ${ui.results && ui.results[ui.dockPage * per + k]?.keep ? "kept" : ""}" data-t="${ui.dockPage * per + k}" title="${ui.results ? tr("re-shoot this frame") : ""}">
                     ${src.startsWith("data:") || src.includes("/view?") || src.includes("filename=")
                         ? `<img src="${src}">` : `<img src="${src}?v=${GUIDE_V}">`}
@@ -2346,6 +2371,18 @@ function buildPanel(node) {
         };
         poll();
     }
+    // a focus pool that survives every picked framing tier -- mirrors the
+    // engine's per-shot pruning, so a roll never pairs "the lips" with a
+    // wide shot or "the shoes" with a portrait
+    const coherentFocus = (framSel) => {
+        const frames = (framSel.mode === "pin" ? [FRAMING_LIB[framSel.pin]] :
+            (framSel.set || []).map(i => FRAMING_LIB[i])).filter(Boolean);
+        const tiers = frames.map(f2 => TIERS[f2]).filter(Boolean);
+        const ok = FOCUS_LIB.map((f2, i) => i)
+            .filter(i => tiers.every(t => focusForShot(FOCUS_LIB[i], t, "") === FOCUS_LIB[i]));
+        return ok.length ? ok : FOCUS_LIB.map((_, i) => i);
+    };
+    const isSingle = () => (node.widgets.find(w2 => w2.name === "mode")?.value || "session") === "single shot";
     // the inspiration roll: one click re-rolls every creative section.
     // The persona, the trigger, your own words, the negative, the session
     // and the output formats stay untouched; sync() lands the previous
@@ -2371,17 +2408,30 @@ function buildPanel(node) {
         state.scene.weather = rnd(WEATHER);
         state.light.setup = rnd(LIGHT_SETUPS);
         state.light.hour = -1;
-        state.scene.props = pickSome(PROPS_LIB, 1 + Math.floor(Math.random() * 2));
         state.style.grade = rnd(STYLES);
         state.style.film = rnd(FILMS);
         const cols = pickSome(LOOK_COLORS, 3).map(c2 => c2[0]);
         state.style.palette = `${rnd(PALETTE_MODS)} ${cols.join(", ")}`;
-        state.camera.framings = { mode: "multi", set: pickSome(FRAMING_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 2)), pin: null };
-        state.camera.focus = { mode: "multi", set: pickSome(FOCUS_LIB.map((_, i) => i), 1 + Math.floor(Math.random() * 2)), pin: null };
+        const single = isSingle();
+        const fIdx = Math.floor(Math.random() * FRAMING_LIB.length);
+        state.camera.framings = single
+            ? { mode: "pin", set: [], pin: fIdx }
+            : { mode: "multi", set: pickSome(FRAMING_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 2)), pin: null };
+        // the focus ride the framing's tier: a close crop reads a face, a
+        // wide one reads the figure -- no more shoes on a portrait
+        const focusPool = coherentFocus(state.camera.framings);
+        state.camera.focus = single
+            ? { mode: "pin", set: [], pin: rnd(focusPool) }
+            : { mode: "multi", set: pickSome(focusPool, 1 + Math.floor(Math.random() * 2)), pin: null };
         state.camera.lens = Math.random() < 0.4 ? rnd(LENS_LIB) : "";
         state.camera.composition = Math.random() < 0.35 ? rnd(COMPOSITION_LIB) : "";
-        state.pose.poses = { mode: "multi", set: pickSome(POSE_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
-        state.expression.expressions = { mode: "multi", set: pickSome(EXPRESSION_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
+        state.pose.poses = single
+            ? { mode: "pin", set: [], pin: Math.floor(Math.random() * POSE_LIB.length) }
+            : { mode: "multi", set: pickSome(POSE_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
+        state.expression.expressions = single
+            ? { mode: "pin", set: [], pin: Math.floor(Math.random() * EXPRESSION_LIB.length) }
+            : { mode: "multi", set: pickSome(EXPRESSION_LIB.map((_, i) => i), 2 + Math.floor(Math.random() * 3)), pin: null };
+        state.scene.props = pickSome(PROPS_LIB, single ? 1 : 1 + Math.floor(Math.random() * 2));
         sync();
     }
     async function startShoot() {

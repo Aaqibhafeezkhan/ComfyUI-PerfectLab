@@ -363,11 +363,11 @@
 .plp-chev { flex: 0 0 12px; color: #555; font-size: 9px; text-align: center; }
 .plp-axis:hover .plp-chev { color: var(--c-orange); }
 .plp-chipbox { margin: 1px 4px 5px 20px; padding: 5px; background: #101010; border: 1px solid #2a2a2a; border-radius: 5px; }
-:root { --plp-cols-txt: 3; --plp-cols: 4; --plp-cols6: 6; --plx-dock-cols: 8; --plp-font: 1;
-        --plx-cols: 4; --plx-cols-tight: 4; }
-.plp-chips { display: grid; grid-template-columns: repeat(var(--plp-cols-txt), 1fr); gap: 4px; }
-.plp-chips.has-img { grid-template-columns: repeat(var(--plp-cols), 1fr); }
-.plp-chips.has-img.c6 { grid-template-columns: repeat(var(--plp-cols6), 1fr); }
+:root { --tile-w: 140px; --tile-w6: 110px; --dock-w: 170px; --plp-font: 1;
+        --tile-wx: 140px; --tile-wt: 130px; --ui-scale: 1; }
+.plp-chips { display: grid; grid-template-columns: repeat(auto-fill, var(--tile-w6)); gap: 4px; }
+.plp-chips.has-img { grid-template-columns: repeat(auto-fill, var(--tile-w)); }
+.plp-chips.has-img.c6 { grid-template-columns: repeat(auto-fill, var(--tile-w6)); }
 .plp-chip span { font-size: calc(8.5px * var(--plp-font)); }
 .plp-chips.has-img.c6 .plp-chip span { font-size: calc(7.5px * var(--plp-font)); }
 .plp-chips.has-img.c6 .plp-chip span { font-size: 7.5px; }
@@ -720,9 +720,10 @@
    plays no slow animation; internal areas scroll instead.
    Palette: surfaces two steps above the background so the layout reads at
    screenshot scale -- the first cut was 91% near-black and invisible. */
-.plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:720px;
+.plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:100%; min-height:420px;
        background:#1a1a21; border-radius:14px; color:#d5d2de;
-       font:11px/1.4 system-ui, sans-serif; overflow:hidden;
+       font-family:system-ui, sans-serif; font-size:calc(15px * var(--ui-scale, 1)) !important;
+       line-height:1.4; overflow:hidden;
        padding-bottom:16px;
        border:1px solid #3a3a48; box-sizing:border-box;
        box-shadow:0 0 0 1px #00000066; }
@@ -778,7 +779,7 @@
 .plx-tab { border:1px solid #3a3a48; background:#22222b; color:#c9c6d8;
            border-radius:6px; padding:4px 9px; cursor:pointer; font-size:9.5px; }
 .plx-tab.act { border-color:#f0b64e; color:#f0b64e; background:#33290f; }
-.plx-chips { display:grid; grid-template-columns:repeat(var(--plx-cols), 1fr); gap:8px; }
+.plx-chips { display:grid; grid-template-columns:repeat(auto-fill, var(--tile-wx)); gap:8px; }
 .plx-chip { background:#262633; border:1px solid #3f3f52; border-radius:8px;
             padding:4px; cursor:pointer; text-align:center; }
 .plx-chip img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:5px;
@@ -852,7 +853,7 @@
     border:3px solid #3f3f52; background:var(--sw); padding:0; }
 .plx-swatch:hover { border-color:#6a6a85; }
 .plx-swatch.act { border-color:#f0b64e; box-shadow:0 0 0 2px #f0b64e; }
-.plx-chips.tight { grid-template-columns:repeat(var(--plx-cols-tight), 1fr); margin:4px 0 2px; }
+.plx-chips.tight { grid-template-columns:repeat(auto-fill, var(--tile-wt)); margin:4px 0 2px; }
 .plx-chip span { font-size:calc(1.05em * var(--plp-font)); }
 .plx-matdot { display:inline-block; width:20px; height:20px; border-radius:5px;
     margin-right:7px; vertical-align:-4px; border:1px solid #00000055; }
