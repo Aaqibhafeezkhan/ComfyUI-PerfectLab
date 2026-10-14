@@ -1176,9 +1176,6 @@ function buildPanel(node) {
     if (!TILE_SIZES[tileSize]) tileSize = "M";
     let uiScale = parseFloat(localStorage.getItem("plx_uiscale")) || 1;
     document.documentElement.style.setProperty("--ui-scale", String(uiScale));
-    const applyUiScale = () => {
-        el.style.fontSize = `calc(15px * var(--ui-scale, 1))`;
-    };
     const applyTiles = () => {
         const t = TILE_SIZES[tileSize];
         const rs = document.documentElement.style;
@@ -1274,7 +1271,8 @@ function buildPanel(node) {
     const syncFont = () => {
         const wpx = el.getBoundingClientRect().width;
         if (wpx < 10) return;
-        const base = Math.max(11, Math.min(19, Math.round(wpx / 58)));
+        const scale = parseFloat(localStorage.getItem("plx_uiscale")) || 1;
+        const base = Math.max(11, Math.min(19, Math.round(wpx / 58)) * scale);
         if (el.style.fontSize !== base + "px") el.style.fontSize = base + "px";
     };
     // the panel box is exact: the DOM widget reports its own height and the
@@ -1292,7 +1290,6 @@ function buildPanel(node) {
         if (node.size[0] < 1200) node.setSize([1200, node.size[1]]);
     };
     requestAnimationFrame(() => requestAnimationFrame(syncSize));
-    applyUiScale();   // after el exists: the font scale rides an inline style
     setTimeout(syncSize, 400);
     setTimeout(syncSize, 1200);
     const sizeObs = new ResizeObserver(() => requestAnimationFrame(syncSize));
@@ -1536,16 +1533,16 @@ function buildPanel(node) {
             const order = [1, 1.15, 1.3];
             uiScale = order[(order.indexOf(uiScale) + 1) % order.length];
             localStorage.setItem("plx_uiscale", String(uiScale));
-            document.documentElement.style.setProperty("--ui-scale", String(uiScale));
             renderHeader();
+            syncSize();
         };
         header.querySelector("[data-tiles]").onclick = () => {
             const order = ["M", "L", "XL", "S"];
             tileSize = order[(order.indexOf(tileSize) + 1) % order.length];
             localStorage.setItem("plx_tiles", tileSize);
             applyTiles();
-            applyUiScale();
             renderHeader();
+            syncSize();
         };
         header.querySelector("[data-inspire]").onclick = () => inspire();
         header.querySelector("[data-undo]").onclick = () => undo();

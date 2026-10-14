@@ -393,36 +393,12 @@ export const fitNode = (node, el, widget, extraNative) => {
     if (!el.isConnected) return;
     const h = el.scrollHeight;
     if (h < 40) return;
-    // the panel grows with its content: bigger preview tiles overflow the
-    // columns, and the panel takes exactly the deficit. Content-driven
-    // only -- the node wraps around it, no feedback loop is possible.
-    // Shrinking steps back toward the floor and stops the moment the
-    // columns fill again (one overshoot, by design)
-    const cols = [...el.querySelectorAll(".plx-rail, .plx-center, .plx-right")];
-    const deficit = Math.max(0, ...cols.map(c => c.scrollHeight - c.clientHeight));
-    if (deficit > 2) {
-        el.style.height = (el.offsetHeight + deficit) + "px";
-        widget._plxGrew = true;
-    } else if (el.offsetHeight - 720 > 2 && !widget._plxGrew) {
-        el.style.height = Math.max(720, el.offsetHeight - 60) + "px";
-    } else {
-        widget._plxGrew = false;
-    }
-    // the target sticks unless the content really grew: scrollHeight of a
-    // stretched panel echoes its own client height (+4 per tick otherwise,
-    // the slow runaway). A manual drag taller persists up to 1200px of
-    // extra room -- the panel fills it (height:100%), the previews just
-    // get more visible rows
-    const prev = widget._plxPrevH || 0;
-    let target = h + 4;
-    if (prev && target <= prev + 4) target = prev;
-    widget._plxPrevH = target;
-    widget.computeSize = (wd) => [wd, target];
+    widget.computeSize = (wd) => [wd, h + 4];
     const native = (node.widgets || [])
         .filter(w => !w.hidden && w.type !== "hidden" && w.computeSize && w.name !== widget.name)
         .reduce((sum, w) => sum + (w.computeSize ? w.computeSize(node.size[0])[1] : 22), 0);
-    const need = target + 34 + Math.max(native, extraNative || 0);
-    if (node.size[1] < need || node.size[1] > need + 1200) node.setSize([node.size[0], need]);
+    const need = h + 34 + Math.max(native, extraNative || 0);
+    if (node.size[1] < need || node.size[1] > need + 120) node.setSize([node.size[0], need]);
 };
 
 /** uniform brand footer: signature on every panel */

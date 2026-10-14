@@ -722,8 +722,7 @@
    screenshot scale -- the first cut was 91% near-black and invisible. */
 .plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:720px;
        background:#1a1a21; border-radius:14px; color:#d5d2de;
-       font-family:system-ui, sans-serif; font-size:calc(15px * var(--ui-scale, 1)) !important;
-       line-height:1.4; overflow:hidden;
+       font:11px/1.4 system-ui, sans-serif; overflow:hidden;
        padding-bottom:16px;
        border:1px solid #3a3a48; box-sizing:border-box;
        box-shadow:0 0 0 1px #00000066; }
