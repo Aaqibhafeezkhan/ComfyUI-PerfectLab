@@ -1,6 +1,6 @@
 // Shared panel kit: favourites, multi-select, presets, uniform tiles and
 // height fitting -- one implementation used by every PerfectLab sub-node.
-import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.2";
+import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.3";
 
 // mirrors the panel: the caption translates, the value stays English
 const RU_KIT = {
@@ -230,7 +230,7 @@ export const libSync = (scope, host, rerender) => {
 
 // the shipped version: the tile cache busters and the panel's update
 // indicator both read this one constant
-export const PL_VERSION = "1.1.2";
+export const PL_VERSION = "1.1.3";
 const GUIDE_V = PL_VERSION;
 // the panel package folder name depends on how the node was installed
 // (git clone: PerfectLab, Manager/registry: comfyui-perfectlab), so the
@@ -386,19 +386,6 @@ export const attachPresets = (node, el, widgetName, presetName) => {
     };
     (el.querySelector(".plp-util-host") || el).prepend(row);
     list();
-};
-
-/** size the node so the whole panel and the native widgets are visible */
-export const fitNode = (node, el, widget, extraNative) => {
-    if (!el.isConnected) return;
-    const h = el.scrollHeight;
-    if (h < 40) return;
-    widget.computeSize = (wd) => [wd, h + 4];
-    const native = (node.widgets || [])
-        .filter(w => !w.hidden && w.type !== "hidden" && w.computeSize && w.name !== widget.name)
-        .reduce((sum, w) => sum + (w.computeSize ? w.computeSize(node.size[0])[1] : 22), 0);
-    const need = h + 34 + Math.max(native, extraNative || 0);
-    if (node.size[1] < need || node.size[1] > need + 120) node.setSize([node.size[0], need]);
 };
 
 /** uniform brand footer: signature on every panel */

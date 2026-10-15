@@ -720,7 +720,14 @@
    plays no slow animation; internal areas scroll instead.
    Palette: surfaces two steps above the background so the layout reads at
    screenshot scale -- the first cut was 91% near-black and invisible. */
-.plx { display:flex; flex-direction:column; width:100%; min-width:780px; height:720px;
+/* Height follows the node: the frontend's DomWidgets layer sizes the
+   .dom-widget wrapper from node.size every frame and this panel fills it
+   (height:100%). The 720px floor matches the widget's declared
+   getMinHeight -- a shrunk-during-load wrapper can never clip the UI.
+   Content is never measured back into the node: that is the frontend's
+   documented resize loop (issue #2652). */
+.plx { display:flex; flex-direction:column; width:100%; min-width:780px;
+       height:100%; min-height:720px;
        background:#1a1a21; border-radius:14px; color:#d5d2de;
        font:11px/1.4 system-ui, sans-serif; overflow:hidden;
        padding-bottom:16px;

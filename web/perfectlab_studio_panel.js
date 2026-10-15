@@ -1,39 +1,40 @@
 // PerfectLab Studio -- the single photoshoot node and its panel.
 //
-// One fixed-height panel: a left rail of sections, a center editor for
-// the active section, a right LIVE TEXT column and a pinned bottom
-// PREVIEW dock with 8 tiles per page. The height never changes, so
-// ComfyUI plays no slow collapse animation. SINGLE SHOT / SESSION in the
-// header; START SHOOT queues the current graph through the API and fills
-// the dock with the rendered frames.
+// A left rail of sections, a center editor for the active section, a
+// right LIVE TEXT column and a pinned bottom PREVIEW dock with 8 tiles
+// per page. The panel stretches with the node: drag the node's corner
+// and the frontend carries the height down to the DOM wrapper itself
+// (its own documented layout path, LGraphNode._arrangeWidgets). SINGLE
+// SHOT / SESSION in the header; START SHOOT queues the current graph
+// through the API and fills the dock with the rendered frames.
 import { app } from "../../scripts/app.js";
-import { chipGrid, tile, itemImg, fitNode, toggleFav, attachPresets,
+import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.2";
+    from "./perfectlab_panel_factory.js?v=1.1.3";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
-         PLACEMENT_LIB, TIERS, TIER_FALLBACK_FOCUS, MACRO_SHOES, walk,
+         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.2";
+    from "./perfectlab_lib.js?v=1.1.3";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.2";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.3";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.2";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.3";
     document.head.append(link);
 }
 
-const GUIDE_V = "1.1.2";
+const GUIDE_V = PL_VERSION;
 // the user's override files (own arcs, tone swaps, energy re-tunes) --
 // the engine reads them from the userdata tree, the preview mirrors them
 // so LIVE TEXT shows what will actually render
@@ -752,7 +753,9 @@ const liveText = (s, seed = 0) => {
         personSlot = subjectWeave(personSlot, exprSlot);
         exprSlot = "";
     }
-    const focusV = focusForShot(firstOf(focus), tier, firstOf(poses)) || TIER_FALLBACK_FOCUS[tier] || "";
+    // the engine never back-fills an unpicked focus (_focus_for_shot keeps
+    // it empty) -- the reset preview must not invent "the face" either
+    const focusV = focusForShot(firstOf(focus), tier, firstOf(poses)) || "";
     const sceneSlot = [s.scene.location, s.scene.weather, s.scene.details,
         (s.scene.props || []).length && "with " + (s.scene.props.length > 1
             ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
@@ -784,7 +787,12 @@ const liveText = (s, seed = 0) => {
             .replace(/\s*\.\s*\./g, ".")
             .replace(/^[,\s]+/, "");
     }
-    filled = clean.replace(/\s+([.,])/g, "$1").replace(/^[.,\s]+/, "").replace(/\s{2,}/g, " ").trim();
+    filled = clean.replace(/\s+([.,])/g, "$1").replace(/^[.,\s]+/, "")
+        .replace(/[ .,]+$/, "").replace(/\s{2,}/g, " ").trim();
+    // the engine closes every prompt as a sentence: strip(" ,.") then one
+    // trailing period (series_nodes.py) -- mirror it so the preview is the
+    // rendered text, punctuation included
+    if (filled && !/[.!?]$/.test(filled)) filled += ".";
     const text = resolveChoices(resolveWildcards(filled, seed, wcGet), seed);
     return { text, raw, parts: parts.filter(Boolean),
              tokens: Math.max(1, Math.round(text.length / 3.6)) };
@@ -1249,21 +1257,37 @@ function buildPanel(node) {
     el.append(mid, dock);
 
     let syncSize = null;
+    // The frontend's own contract (LGraphNode._arrangeWidgets in the
+    // ComfyUI frontend): node.size is the source of truth. Each frame the
+    // wrapper div gets the node's height in px and the element fills it.
+    // getMinHeight declares the floor -- the drag handler clamps against
+    // it and the layout grows the node back when content is taller. The
+    // element's rendered height is NEVER measured back into the node:
+    // that feedback is the documented infinite-growth loop (frontend
+    // issue #2652), and the four previous attempts died on exactly it
     const widget = node.addDOMWidget("plx_panel", "plx_panel", el,
-                                    { serialize: false, hideOnZoom: false });
+                                    { serialize: false, hideOnZoom: false,
+                                      getMinHeight: () => 720 });
     const i = node.widgets.indexOf(widget);
     if (i > 0) { node.widgets.splice(i, 1); node.widgets.unshift(widget); }
     // the panel header owns the controls -- the native widgets only carry
-    // values into the queue, so they leave the visual surface
+    // values into the queue, so they leave the visual surface. The
+    // .hidden flag is the one the layout reads (getLayoutWidgets filters
+    // on it): without it the rows kept ~250px of dead node body, the
+    // frontend grew the node to fit them and the old shrink-tick fought
+    // back -- the flicker, verbatim
     node.widgets.forEach(w => {
-        if (["node_data", "mode", "stage", "seed", "variations"].includes(w.name))
+        if (["node_data", "mode", "stage", "seed", "variations",
+             "control_after_generate"].includes(w.name)) {
+            w.hidden = true;
             w.type = "hidden";
+        }
     });
 
-    // a fixed height -- no grow/shrink, no collapse animation
-    const H = 720;
-    el.style.height = H + "px";
-    node.size = [790, H + 60];
+    // the panel element carries no height of its own (styles.css: the .plx
+    // rule is height:100% of the wrapper) -- the node starts at a
+    // comfortable default and the user can drag it any size from here
+    node.size = [1200, 800];
 
     // proportional scaling: the panel's base font tracks the node width and
     // the em-sized controls (buttons, rail, cards, captions) grow with it --
@@ -1275,16 +1299,13 @@ function buildPanel(node) {
         const base = Math.max(11, Math.min(19, Math.round(wpx / 58)) * scale);
         if (el.style.fontSize !== base + "px") el.style.fontSize = base + "px";
     };
-    // the panel box is exact: the DOM widget reports its own height and the
-    // node grows to fit -- the kit's proven fitNode formula, no scale math
+    // Height is entirely the frontend's business now: the widget declares
+    // its floor, _arrangeWidgets distributes the node's height and grows
+    // the node back when the layout needs more. All this tick owns is the
+    // width-proportional font and the width floor -- nothing here reads
+    // the element's height, so nothing can feed a growth loop
     syncSize = () => {
         syncFont();
-        fitNode(node, el, widget);
-        // generous slack: the panel sits fully inside the node box even when
-        // the frontend's own row heights drift -- a taller box is harmless,
-        // a clipped panel is not
-        const need = el.scrollHeight + 160;
-        if (node.size[1] < need) node.setSize([node.size[0], need]);
         // tiles breathe: a panel narrower than this squeezes the 4-column
         // chip grid to thumbnails, so the node gets a floor width
         if (node.size[0] < 1200) node.setSize([1200, node.size[1]]);
