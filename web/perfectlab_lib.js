@@ -9,7 +9,7 @@
 // Python engine sources); this file re-exports them and keeps the logic
 // tables that mirror series_nodes.py.
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB }
-    from "./perfectlab_libraries.js?v=1.1.4";
+    from "./perfectlab_libraries.js?v=1.1.5";
 export { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB };
 
 export const ARC_LIB = {
@@ -76,6 +76,21 @@ export const MACRO_SHOES = ("extreme close-up macro shot at floor level, camera 
 // focus points that name the face -- filtered on figure tiers and back views
 export const FACE_FOCUS = ["the face", "the eyes", "the lips", "the profile line"];
 export const TIER_FALLBACK_FOCUS = { close: "the face", medium: "the face", figure: "the full figure" };
+// the Prompt Assistant's clock phrases, mirrored from
+// prompt_assistant.py get_lighting_description -- the light slot reads
+// these verbatim when the hour is set and no setup is picked
+export const clockLight = (hour) => {
+    const h = Math.round(+hour);
+    if (h >= 0 && h < 4) return "dim lighting, low key, dark atmosphere, minimal illumination, cold color temp, high contrast shadows, mystery mood";
+    if (h < 6) return "blue hour, cold ambient lighting, soft dim light, low contrast, melancholic atmosphere, predawn glow";
+    if (h < 8) return "soft warm glow, morning light, diffuse illumination, long shadows, rising light source, golden hour vibes";
+    if (h < 11) return "bright clean lighting, neutral white balance, soft shadows, airy atmosphere, clear illumination, balanced exposure";
+    if (h < 16) return "hard lighting, strong highlights, sharp deep shadows, high contrast, bright exposure, vivid colors, direct sunlight";
+    if (h < 18) return "warm ambient light, soft contrast, golden tones, rich lighting, atmospheric glow, volumetric sun";
+    if (h < 21) return "dramatic lighting, cinematic light, orange and teal contrast, rim lighting, volumetric mood, dusk atmosphere";
+    if (h <= 24) return "night lighting, moody atmosphere, practical lights, dark surroundings, mysterious vibe, cinematic noir";
+    return "";
+};
 export const focusForShot = (focus, tier, pose) => {
     const back = (pose || "").includes("back to the camera");
     if (back && FACE_FOCUS.includes(focus)) return "the silhouette";

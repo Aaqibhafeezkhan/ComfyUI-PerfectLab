@@ -11,26 +11,26 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.4";
+    from "./perfectlab_panel_factory.js?v=1.1.5";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
-         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk,
+         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk, clockLight,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.4";
+    from "./perfectlab_lib.js?v=1.1.5";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.4";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.5";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.4";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.5";
     document.head.append(link);
 }
 
@@ -695,7 +695,20 @@ const liveText = (s, seed = 0) => {
     const fmtSel = s.camera.formats;
     const fmt = (fmtSel.set || (fmtSel.mode === "pin" ? [fmtSel.pin] : []))
         .map(i => FORMAT_LIB[i]).filter(f => f && f !== "follows framing");
-    const light = s.light.setup || (s.light.hour >= 0 ? `hour ${s.light.hour}: the clock lighting` : "");
+    // the engine's slot writers, mirrored from look_nodes.py and
+    // prompt_assistant.py: the scene leads with "the setting is", the
+    // palette carries its label, a clock hour reads the Prompt
+    // Assistant's own phrases -- the preview must read like the render
+    const propsClause = (s.scene.props || []).length
+        ? "with " + (s.scene.props.length > 1
+            ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
+            : s.scene.props[0]) : "";
+    const sceneSlot = [s.scene.location && "the setting is " + s.scene.location,
+        s.scene.weather, s.scene.details, propsClause].filter(Boolean).join(", ");
+    const styleSlot = [s.style.grade, s.style.style_film || s.style.film,
+        s.style.palette && "color palette: " + s.style.palette,
+        s.camera.lens, s.camera.composition].filter(Boolean).join(", ");
+    const light = s.light.setup || (s.light.hour >= 0 ? clockLight(s.light.hour) : "");
     const expressions = (s.expression.expressions.mode === "pin"
         ? [s.expression.expressions.pin] : (s.expression.expressions.set || []))
         .map(i => EXPRESSION_LIB[i]).filter(Boolean);
@@ -705,10 +718,7 @@ const liveText = (s, seed = 0) => {
     // Any pick (or a typed line) switches the full machinery back on
     const anyContent = [
         s.shot.main_prompt, s.shot.custom, per, wearing, extras,
-        s.scene.location, s.scene.weather, s.scene.details,
-        (s.scene.props || []).length && "props", light,
-        [s.style.grade, s.style.style_film || s.style.film, s.style.palette,
-         s.camera.lens, s.camera.composition].filter(Boolean).join(", "),
+        sceneSlot, light, styleSlot,
         framings.length && "framing", focus.length && "focus", fmt.length && "format",
         poses.length && "pose", expressions.length && "expression",
     ].some(Boolean);
@@ -730,12 +740,11 @@ const liveText = (s, seed = 0) => {
         (s.scene.props || []).length && "with " + (s.scene.props.length > 1
             ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
             : s.scene.props[0]),
-            light, [s.style.grade, s.style.style_film || s.style.film, s.style.palette].filter(Boolean).join(", "),
+            light, styleSlot,
             framings.join(", "),
             focus.join(", "),
             poses.join(", "),
             expressions.join(", "),
-            s.camera.lens,
             s.shot.custom,
         ].filter(Boolean).map(t => (t === s.shot.main_prompt || t === s.shot.custom) ? t : stripArticles(t));
         const rawTags = tags.join(", ");
@@ -779,12 +788,7 @@ const liveText = (s, seed = 0) => {
     // the engine never back-fills an unpicked focus (_focus_for_shot keeps
     // it empty) -- the reset preview must not invent "the face" either
     const focusV = focusForShot(firstOf(focus), tier, firstOf(poses)) || "";
-    const sceneSlot = [s.scene.location, s.scene.weather, s.scene.details,
-        (s.scene.props || []).length && "with " + (s.scene.props.length > 1
-            ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
-            : s.scene.props[0])].filter(Boolean).join(", ");
-    const slotVals = { person: personSlot, scene: sceneSlot,
-        style: [s.style.grade, s.style.style_film || s.style.film, s.style.palette].filter(Boolean).join(", "),
+    const slotVals = { person: personSlot, scene: sceneSlot, style: styleSlot,
         framing: framings[0] ? framingText(framings[0]) : "",
         focus: focusV, pose: firstOf(poses) || "",
         placement: walk(PLACEMENT_LIB, null, 1, seed)[0] || "",
@@ -1580,8 +1584,9 @@ function buildPanel(node) {
         }
         header.querySelector("[data-resetall]").onclick = () => { resetAll(); };
         header.querySelector("[data-settings]").onclick = () => {
-            if (seedOverlay.style.display === "none") { renderSeedBox(); seedOverlay.style.display = ""; }
-            else seedOverlay.style.display = "none";
+            const opening = seedOverlay.style.display === "none";
+            closePopups(seedOverlay);
+            if (opening) { renderSeedBox(); seedOverlay.style.display = ""; }
         };
         header.querySelector("[data-uiscale]").onclick = () => {
             const order = [1, 1.15, 1.3];
@@ -2277,7 +2282,9 @@ function buildPanel(node) {
             lintBtn.onclick = () => {
                 lintOverlay.innerHTML = issues.map(i =>
                     `<div class="plx-sr"><span class="plx-lint-tag">${esc(tr(i.t))}</span>${esc(i.d)}</div>`).join("");
-                lintOverlay.style.display = lintOverlay.style.display === "none" ? "" : "none";
+                const opening = lintOverlay.style.display === "none";
+                closePopups(lintOverlay);
+                lintOverlay.style.display = opening ? "" : "none";
             };
         }
         right.querySelector("[data-main]").onchange = e => {
@@ -2537,6 +2544,12 @@ function buildPanel(node) {
             && !(e.target.closest && e.target.closest("[data-settings]")))
             seedOverlay.style.display = "none";
     }, true);
+    // the search, linter and seed popups share the header's top-right
+    // corner -- never two of them at once
+    const closePopups = (keep) => {
+        for (const p of [searchOverlay, lintOverlay, seedOverlay])
+            if (p !== keep) p.style.display = "none";
+    };
     function renderSeedBox() {
         const seedW = node.widgets.find(w => w.name === "seed");
         const cagW = node.widgets.find(w => w.name === "control_after_generate");
@@ -2585,6 +2598,7 @@ function buildPanel(node) {
                 <span>${esc(disp(r.label))}</span>
                 <span class="plx-sr-sec">${r.sec} · ${r.sub}</span>
             </div>`).join("");
+        closePopups(searchOverlay);
         searchOverlay.style.display = "";
         searchOverlay.querySelectorAll("[data-sr]").forEach(rowEl => rowEl.onclick = () => {
             const r = JSON.parse(rowEl.dataset.sr);

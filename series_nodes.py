@@ -935,15 +935,24 @@ class PerfectLabSeries:
                 line += f", {placement}. {lighting}. {quality}".replace(" .", ".")
             if not outfit:
                 line = re.sub(r"wearing\s*(?:,|\.|$)\s*", "", line)
-            # dropped slots leave holes; dissolve them phrase by phrase
-            line = re.sub(r",\s*\.", ".", line)
-            line = re.sub(r"\.\s*,", ". ", line)
-            line = re.sub(r"(?:\s*,\s*){2,}", ", ", line)
-            line = re.sub(r"(?:\.\s*){2,}", ". ", line)
-            line = re.sub(r"\s+\.", ".", line)
-            line = re.sub(r"\.\s*\.", ".", line)
-            line = re.sub(r"^\s*[.,]\s*", "", line)
-            line = re.sub(r"\s{2,}", " ", line).strip(" ,.")
+            # dropped slots leave holes; dissolve them phrase by phrase.
+            # A single ordered pass leaves seams: the wearing strip above
+            # runs after the chain and exposes comma pairs no rule sees
+            # again, and the dot-dot collapse can seat a dot next to a
+            # comma the earlier rule already passed -- run the rules
+            # until the text stops changing (the panel's preview loops
+            # the same way)
+            prev = None
+            while prev != line:
+                prev = line
+                line = re.sub(r",\s*\.", ".", line)
+                line = re.sub(r"\.\s*,", ". ", line)
+                line = re.sub(r"(?:\s*,\s*){2,}", ", ", line)
+                line = re.sub(r"(?:\.\s*){2,}", ". ", line)
+                line = re.sub(r"\s+\.", ".", line)
+                line = re.sub(r"\.\s*\.", ".", line)
+                line = re.sub(r"^\s*[.,]\s*", "", line)
+                line = re.sub(r"\s{2,}", " ", line).strip(" ,.")
             if line and not line.endswith((".", "!", "?")):
                 line += "."
 

@@ -122,6 +122,28 @@ def test_one_pick_restores_the_full_machinery():
     assert "editorial photography" in prompts[0]
 
 
+def test_hole_seams_dissolve():
+    """the cleanup runs until the text stops changing: a single ordered
+    pass left '. ,' seams where the wearing strip or the dot-dot collapse
+    exposed punctuation no earlier rule would see again"""
+    config = {"_v": 2, "shot": {}, "session": {},
+              "scene": {"location": "a rooftop cafe"}}
+    p = perfectlab_studio._run_session(config, 1, 0, -1)[0][0]
+    assert "the setting is a rooftop cafe" in p
+    for seam in (". ,", ", .", "  ", "..", ",,", "wearing"):
+        assert seam not in p, f"seam {seam!r} survived: {p!r}"
+    # only the scene picked: the slot writers' phrasing rides verbatim
+    assert p == ("the setting is a rooftop cafe. centered in frame. "
+                 "editorial photography, natural light.")
+
+
+def test_clock_hour_reads_the_assistant_phrases():
+    config = {"_v": 2, "shot": {}, "session": {}, "light": {"hour": 7}}
+    p = perfectlab_studio._run_session(config, 1, 0, -1)[0][0]
+    assert "morning light" in p
+    assert "hour 7" not in p
+
+
 def test_mirror_file_is_fresh():
     repo = os.path.join(CUSTOM_NODES, "PerfectLab")
     gen = os.path.join(repo, "web", "perfectlab_libraries.js")
