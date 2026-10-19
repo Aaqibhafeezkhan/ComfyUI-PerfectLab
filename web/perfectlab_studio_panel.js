@@ -11,26 +11,26 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.3";
+    from "./perfectlab_panel_factory.js?v=1.1.4";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, MACRO_SHOES, walk,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.3";
+    from "./perfectlab_lib.js?v=1.1.4";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.3";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.4";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.3";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.4";
     document.head.append(link);
 }
 
@@ -109,6 +109,15 @@ const RU = {
     "the expression rides the persona's lead clause instead of standing after the crop -- moods read stronger": "выражение едет в лид-клаузе персоны, а не стоит после кадра — настроение читается сильнее",
     "one seed for every shot": "один сид на все кадры",
     "the whole session rides the same noise -- a clean A/B where only the framings, poses and looks vary": "вся сессия на одном шуме — чистое A/B, меняются только кадры, позы и образы",
+    "empty -- nothing is picked and nothing is typed yet; the engine composes from your first pick": "пусто -- ничего не выбрано и не вписано; движок соберёт промт с вашего первого выбора",
+    "seed and queue settings": "настройки сида и очереди",
+    "seed": "сид",
+    "how the seed goes": "как идёт сид",
+    "fixed -- every shoot starts from this seed": "фиксированный -- каждая съёмка с этого сида",
+    "+1 after every shot": "+1 после каждого кадра",
+    "random after every shot": "случайный после каждого кадра",
+    "random seed now": "случайный сид сейчас",
+    "the seed rides the hidden widget into the queue; the mode is ComfyUI's own control_after_generate": "сид уезжает в очередь через скрытый виджет; режим -- это родной control_after_generate ComfyUI",
     "dramaturgy arc": "дуга драматургии", "the session's emotional curve": "эмоциональная кривая сессии",
     "flat walk": "ровный список", "the arc's couplings": "связки дуги",
     "what follows the curve": "что следует кривой",
@@ -690,6 +699,20 @@ const liveText = (s, seed = 0) => {
     const expressions = (s.expression.expressions.mode === "pin"
         ? [s.expression.expressions.pin] : (s.expression.expressions.set || []))
         .map(i => EXPRESSION_LIB[i]).filter(Boolean);
+    // the engine composes nothing from a blank session (_run_session in
+    // perfectlab_studio.py): no picks and no own lines anywhere means no
+    // walk-in words either -- a full reset previews as an empty LIVE TEXT.
+    // Any pick (or a typed line) switches the full machinery back on
+    const anyContent = [
+        s.shot.main_prompt, s.shot.custom, per, wearing, extras,
+        s.scene.location, s.scene.weather, s.scene.details,
+        (s.scene.props || []).length && "props", light,
+        [s.style.grade, s.style.style_film || s.style.film, s.style.palette,
+         s.camera.lens, s.camera.composition].filter(Boolean).join(", "),
+        framings.length && "framing", focus.length && "focus", fmt.length && "format",
+        poses.length && "pose", expressions.length && "expression",
+    ].some(Boolean);
+    if (!anyContent) return { text: "", raw: "", parts: [], tokens: 0 };
     // SDXL tag mode: a flat comma list, no prose labels -- the same shape
     // the engine's tag branch produces
     if ((s.shot.style_mode || "natural") === "tags") {
@@ -1293,7 +1316,12 @@ function buildPanel(node) {
     // the em-sized controls (buttons, rail, cards, captions) grow with it --
     // stretch the node and the whole UI grows, not just the preview tiles
     const syncFont = () => {
-        const wpx = el.getBoundingClientRect().width;
+        // the canvas transform scales the whole panel with the graph zoom;
+        // strip it before the width-to-font math or a zoom would re-scale
+        // the UI a second time on top of that transform -- the layout
+        // reflows only when the node itself is resized
+        const zoom = (app.canvas && app.canvas.ds && app.canvas.ds.scale) || 1;
+        const wpx = el.getBoundingClientRect().width / (zoom || 1);
         if (wpx < 10) return;
         const scale = parseFloat(localStorage.getItem("plx_uiscale")) || 1;
         const base = Math.max(11, Math.min(19, Math.round(wpx / 58)) * scale);
@@ -1515,6 +1543,7 @@ function buildPanel(node) {
                      title="${tr("LAST SHOOT")}">🖼 ${ui.results.length}</button>` : ""}
             <button class="plx-reset" data-tiles title="${tr("preview tile size")}">${tileSize.toUpperCase()}</button>
             <button class="plx-reset" data-uiscale title="${tr("interface scale: text and buttons")}">${Math.round(uiScale * 100)}%</button>
+            <button class="plx-reset" data-settings title="${tr("seed and queue settings")}">⚙</button>
             <button class="plx-reset" data-inspire title="${tr("re-roll every creative section -- the persona and your own words stay")}">🎲</button>
             <button class="plx-reset" data-undo title="${tr("undo the last pick")}">↶</button>
             <button class="plx-reset" data-redo title="${tr("redo")}">↷</button>
@@ -1550,6 +1579,10 @@ function buildPanel(node) {
             sbox.onkeydown = (e) => { if (e.key === "Escape") { sbox.value = ""; hideSearch(); } };
         }
         header.querySelector("[data-resetall]").onclick = () => { resetAll(); };
+        header.querySelector("[data-settings]").onclick = () => {
+            if (seedOverlay.style.display === "none") { renderSeedBox(); seedOverlay.style.display = ""; }
+            else seedOverlay.style.display = "none";
+        };
         header.querySelector("[data-uiscale]").onclick = () => {
             const order = [1, 1.15, 1.3];
             uiScale = order[(order.indexOf(uiScale) + 1) % order.length];
@@ -2222,7 +2255,9 @@ function buildPanel(node) {
                 <option value="tags" ${(state.shot.style_mode || "natural") === "tags" ? "selected" : ""}>${tr("SDXL tags (comma list)")}</option>
             </select></div>
             <div class="plx-sub">${tr("LIVE TEXT")} <span class="plx-dim ${(budgetOf(state) && tokens > budgetOf(state)) ? "over" : ""}">${tr("estimate")} · ${budgetOf(state) ? `${tokens}/${budgetOf(state)}` : tokens} ${tr("tok")}${budgetOf(state) && tokens > budgetOf(state) ? ` -- ${tr("over the token budget, trim picks or the guard drops slots")}` : ""}</span></div>
-            <div class="plx-live">${esc(text)}</div>
+            <div class="plx-live">${text
+                ? esc(text)
+                : `<span class="plx-dim">${tr("empty -- nothing is picked and nothing is typed yet; the engine composes from your first pick")}</span>`}</div>
             <div class="plx-sub">${tr("SESSION PLAN")}</div>
             <div class="plx-session">
                 ${tr("One START SHOOT renders")} <b>${state.session.count * state.session.takes}</b> ${plural(state.session.count * state.session.takes, "frame")}
@@ -2491,6 +2526,46 @@ function buildPanel(node) {
     lintOverlay.className = "plx-searchbox plx-lintbox";
     lintOverlay.style.display = "none";
     el.appendChild(lintOverlay);
+    // the hidden widgets' own controls live here: the seed and how it
+    // advances between shoots (ComfyUI's control_after_generate)
+    const seedOverlay = document.createElement("div");
+    seedOverlay.className = "plx-seedbox";
+    seedOverlay.style.display = "none";
+    el.appendChild(seedOverlay);
+    document.addEventListener("mousedown", (e) => {
+        if (!seedOverlay.contains(e.target)
+            && !(e.target.closest && e.target.closest("[data-settings]")))
+            seedOverlay.style.display = "none";
+    }, true);
+    function renderSeedBox() {
+        const seedW = node.widgets.find(w => w.name === "seed");
+        const cagW = node.widgets.find(w => w.name === "control_after_generate");
+        const cur = String((cagW && cagW.value) || "randomize");
+        seedOverlay.innerHTML = `
+            <div class="plx-sb-row"><span class="plx-sb-l">${tr("seed")}</span>
+                <input class="plx-inp" type="number" min="0" data-seedval value="${+(seedW && seedW.value) || 0}">
+                <button class="plx-btn" data-randseed title="${tr("random seed now")}">🎲</button></div>
+            <div class="plx-sb-row"><span class="plx-sb-l">${tr("how the seed goes")}</span>
+                <select class="plx-inp" data-seedmode>
+                    ${[["fixed", tr("fixed -- every shoot starts from this seed")],
+                       ["increment", tr("+1 after every shot")],
+                       ["randomize", tr("random after every shot")]]
+                        .map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("")}
+                </select></div>
+            <div class="plx-sb-hint">${tr("the seed rides the hidden widget into the queue; the mode is ComfyUI's own control_after_generate")}</div>`;
+        seedOverlay.querySelector("[data-seedval]").onchange = (e) => {
+            if (seedW) seedW.value = Math.max(0, Math.floor(+e.target.value || 0));
+            renderRight();   // LIVE TEXT rolls its wildcards off the seed
+        };
+        seedOverlay.querySelector("[data-randseed]").onclick = () => {
+            if (seedW) seedW.value = Math.floor(Math.random() * 0x7fffffff);
+            seedOverlay.querySelector("[data-seedval]").value = seedW ? seedW.value : 0;
+            renderRight();
+        };
+        seedOverlay.querySelector("[data-seedmode]").onchange = (e) => {
+            if (cagW) cagW.value = e.target.value;
+        };
+    }
     document.addEventListener("mousedown", (e) => {
         if (!lintOverlay.contains(e.target)) lintOverlay.style.display = "none";
     }, true);

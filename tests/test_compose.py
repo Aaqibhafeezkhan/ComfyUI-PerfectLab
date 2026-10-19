@@ -105,6 +105,23 @@ def test_lens_rides_the_style_slot():
     assert "cinematic teal and orange grade" in slots["style"]
 
 
+def test_blank_session_composes_nothing():
+    """no picks and no own lines means no walk-in words: a full reset
+    renders an empty prompt, placements and quality line included"""
+    prompts, widths, heights, seeds, metas = perfectlab_studio._run_session(
+        {"shot": {}, "session": {"count": 3}}, 3, 0, -1)
+    assert prompts == ["", "", ""]
+    assert widths and heights and len(widths) == len(heights) == 3
+
+
+def test_one_pick_restores_the_full_machinery():
+    config = {"_v": 2, "shot": {}, "session": {},
+              "scene": {"location": "a rooftop cafe"}}
+    prompts, *_ = perfectlab_studio._run_session(config, 1, 0, -1)
+    assert "rooftop cafe" in prompts[0]
+    assert "editorial photography" in prompts[0]
+
+
 def test_mirror_file_is_fresh():
     repo = os.path.join(CUSTOM_NODES, "PerfectLab")
     gen = os.path.join(repo, "web", "perfectlab_libraries.js")

@@ -1024,6 +1024,16 @@
     object-fit:cover; display:inline-flex; align-items:center; justify-content:center; }
 .plx-sr .plx-sr-sec { margin-left:auto; color:#8a879e; font-size:.85em; }
 
+/* seed & queue settings popup */
+.plx-seedbox { position:absolute; top:46px; right:12px; width:360px; max-width:75%;
+    background:#22222b; border:1px solid #3a3a48; border-radius:10px;
+    padding:8px 10px; z-index:60; box-shadow:0 8px 30px #000a; }
+.plx-sb-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+.plx-sb-l { flex:0 0 auto; color:#f0b64e; font-weight:700; font-size:.9em; letter-spacing:.08em; }
+.plx-sb-row .plx-inp { flex:1 1 auto; min-width:0; }
+.plx-sb-row .plx-btn { flex:0 0 auto; }
+.plx-sb-hint { color:#8a879e; font-size:.85em; margin-top:6px; line-height:1.35; }
+
 /* undo/redo/reroll/presets */
 .plx-roll { color:#e8c98c; }
 .plx-roll:hover { border-color:#f0b64e; color:#f0b64e; }

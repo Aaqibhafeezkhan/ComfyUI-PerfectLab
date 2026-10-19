@@ -139,6 +139,23 @@ def _run_session(config, count, seed, shot_pick):
     quality = (shot.get("quality_line") or session.get("quality_line")
                or "editorial photography, natural light").strip()
     slots = compose_slots(config, count, seed)
+    main = (shot.get("main_prompt") or "").strip()
+    custom = (shot.get("custom") or "").strip()
+    # a blank session composes nothing: no picks anywhere and no own
+    # lines means no walk-in words either -- a full reset renders an
+    # empty prompt and the panel's LIVE TEXT shows exactly that. Any
+    # single pick (or a typed line) switches the full machinery back
+    # on, placement rotation and quality line included
+    content = [main, custom] + [slots.get(k) for k in
+               ("person", "wardrobe", "scene", "light", "style",
+                "poses", "expressions", "framings", "focus", "formats")]
+    if not any(content):
+        from .series_nodes import TIER_RATIOS, _ratio_size
+        w, h = _ratio_size(TIER_RATIOS["medium"])
+        seeds = [int(seed) if session.get("fixed_seed") else (int(seed) + i) % (1 << 64)
+                 for i in range(count)]
+        metas = [{"node": "studio", "shot": i + 1} for i in range(count)]
+        return ([""] * count, [w] * count, [h] * count, seeds, metas)
     # SDXL tag mode: per-shot substitution. Every multi-select feeds ONE
     # value per frame, rotating across the session -- the same walk
     # semantics the natural mode has, in tag form. The frame's size comes
@@ -154,8 +171,6 @@ def _run_session(config, count, seed, shot_pick):
         # tier size the frame, exactly as the natural mode does
         fmts_l = [f for f in (slots.get("formats") or []) if f != "follows framing"]
         pick = lambda seq, i: str(seq[i % len(seq)]).strip() if seq else ""
-        main = (shot.get("main_prompt") or "").strip()
-        custom = (shot.get("custom") or "").strip()
         prompts, widths, heights, seeds, metas = [], [], [], [], []
         for i in range(count):
             parts = [slots.get("person"),
@@ -204,10 +219,8 @@ def _run_session(config, count, seed, shot_pick):
     metas = [json.loads(m) if isinstance(m, str) else m for m in metas]
     # the trigger / prefix line rides in front, the custom additions ride
     # behind every composed shot
-    main = (shot.get("main_prompt") or "").strip()
     if main:
         prompts = [f"{main}\n\n{p}" if p else main for p in prompts]
-    custom = (shot.get("custom") or "").strip()
     if custom:
         prompts = [f"{p}\n\n{custom}" if p else custom for p in prompts]
     prompts = [resolve_choices(resolve_wildcards(p, s), s)
