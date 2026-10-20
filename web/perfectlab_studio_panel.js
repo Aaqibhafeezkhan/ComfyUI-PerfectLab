@@ -11,27 +11,28 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.8";
+    from "./perfectlab_panel_factory.js?v=1.1.9";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, MACRO_SHOES, clockLight, composeLook, walkList,
-         NEAR_PLACEMENTS,
+         NEAR_PLACEMENTS, arcLevels, poseForLevel, framingForLevel, focusForLevel,
+         placementForLevel, toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.8";
+    from "./perfectlab_lib.js?v=1.1.9";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.8";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.9";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.8";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.9";
     document.head.append(link);
 }
 
@@ -722,19 +723,23 @@ const liveText = (s, seed = 0) => {
     // multi with an empty set -- walks the WHOLE library in the shared
     // deterministic order. The preview is shot 1 of the session
     const sesCount = Math.max(1, +s.session.count || 1);
-    const poses = poseOff ? [] : [walkList(POSE_LIB, s.pose.poses, sesCount, seed, 1)[0]]
-        .filter(Boolean);
+    // the walked feeds stay whole: the arc couplings swap within the
+    // same feed the engine swaps in (series loop, poses_l/framings_l/focus_l)
+    const posesWalked = poseOff ? [] : walkList(POSE_LIB, s.pose.poses, sesCount, seed, 1);
+    const poses = [posesWalked[0]].filter(Boolean);
     const framingSel = s.camera.framings;
-    let framings = [];
+    let framingsWalked = [];
     if (!camOff) {
-        framings = (s.camera.framing_order === "wide-to-close"
+        framingsWalked = (s.camera.framing_order === "wide-to-close"
                     && (framingSel.mode || "all") === "all" && !(framingSel.set || []).length)
-            // the dramaturgy opens on the widest crop, reversed plain range
-            ? [FRAMING_LIB[FRAMING_LIB.length - 1]]
-            : [walkList(FRAMING_LIB, framingSel, sesCount, seed, 0)[0]];
+            // the dramaturgy walks a reversed plain range, widest first
+            ? [...Array(sesCount)].map((_, i2) =>
+                FRAMING_LIB[FRAMING_LIB.length - 1 - (i2 % FRAMING_LIB.length)])
+            : walkList(FRAMING_LIB, framingSel, sesCount, seed, 0);
     }
-    const focus = camOff ? [] : [walkList(FOCUS_LIB, s.camera.focus, sesCount, seed, 3)[0]]
-        .filter(Boolean);
+    const framings = [framingsWalked[0]].filter(Boolean);
+    const focusWalked = camOff ? [] : walkList(FOCUS_LIB, s.camera.focus, sesCount, seed, 3);
+    const focus = [focusWalked[0]].filter(Boolean);
     const fmtSel = s.camera.formats;
     const fmt = camOff ? [] : [walkList(FORMAT_LIB, fmtSel, sesCount, seed, 4)[0]]
         .filter(f => f && f !== "follows framing");
@@ -834,29 +839,57 @@ const liveText = (s, seed = 0) => {
     // The JS builders mirror the composers closely enough for a preview;
     // the engine's text stays the source of truth for what renders
     const firstOf = (arr) => (arr && arr.length ? arr[0] : "");
-    const tier = TIERS[framings[0]] || "medium";
-    // the engine's placement is a plain index cycle -- no shuffle -- and
-    // a close crop clamps it to the near set (series_nodes.py). The arc
-    // couplings can still move it per shot; the preview is shot 1
-    const placementV = PLACEMENT_LIB[0] || "";
+    // the arc's couplings bend the walked values per shot (the series
+    // loop in series_nodes.py), in the engine's own order: the tone
+    // first, the pose, then the crop moves the tier, then the focus
+    // reads the swapped pose and the moved tier, then the placement --
+    // and the close-crop clamp wins last. The preview is shot 1, so
+    // lvl is the arc's own first level
+    const lvl = s.expression.arc ? (arcLevels(s.expression.arc, sesCount)[0] ?? null) : null;
+    let lightV = light;
+    if (lvl != null && lightV && (lvl <= TONE_QUIET_BAND || lvl >= TONE_BOLD_BAND))
+        lightV = toneLight(lightV, lvl <= TONE_QUIET_BAND ? 0 : 1).line;
+    let poseV = firstOf(poses) || "";
+    if (lvl != null && s.session.pose_arc && poseV)
+        poseV = poseForLevel(posesWalked, poseV, lvl, 0);
+    let framingV = framings[0] || "";
+    let tier = TIERS[framingV] || "medium";
+    if (lvl != null && s.session.crop_arc && framingsWalked.length) {
+        framingV = framingForLevel(framingsWalked, framingV, lvl, 0);
+        tier = TIERS[framingV] || "medium";
+    }
+    let focusRaw = firstOf(focus) || "";
+    if (lvl != null && s.session.focus_arc && focusWalked.length)
+        focusRaw = focusForLevel(focusWalked, focusRaw, lvl, 0, tier, poseV);
+    let placementV = PLACEMENT_LIB[0] || "";
+    if (lvl != null && s.session.place_arc)
+        placementV = placementForLevel(placementV, lvl, 0, tier === "close");
+    if (tier === "close" && !NEAR_PLACEMENTS.includes(placementV))
+        placementV = "close to the camera";
+    // the engine never back-fills an unpicked focus (_focus_for_shot keeps
+    // it empty) -- the reset preview must not invent "the face" either.
+    // A shoe focus on a close crop turns the framing into the floor-level
+    // macro BEFORE the weave reads it
+    const focusV = focusForShot(focusRaw, tier, poseV) || "";
+    let framingTextV = framingV ? framingText(framingV) : "";
+    if (tier === "close" && focusV === "the shoes") framingTextV = MACRO_SHOES;
     // the trigger already rides inside per (compose_blocks appends it to
     // the identity block) -- do not add it a second time
     let personSlot = per || "";
     const exprPicked = firstOf(expressions) || "";
     let exprSlot = exprPicked;
-    if (s.session.mood_subject && exprSlot && personSlot && framings[0] !== MACRO_SHOES) {
+    // a back view cannot also sell a facial expression -- the engine
+    // blanks it before the weave
+    if (poseV === "back to the camera") exprSlot = "";
+    if (s.session.mood_subject && exprSlot && personSlot && framingTextV !== MACRO_SHOES) {
         personSlot = subjectWeave(personSlot, exprSlot);
         exprSlot = "";
     }
-    // the engine never back-fills an unpicked focus (_focus_for_shot keeps
-    // it empty) -- the reset preview must not invent "the face" either
-    const focusV = focusForShot(firstOf(focus), tier, firstOf(poses)) || "";
     const slotVals = { person: personSlot, scene: sceneSlot, style: styleSlot,
-        framing: framings[0] ? framingText(framings[0]) : "",
-        focus: focusV, pose: firstOf(poses) || "",
-        placement: (tier === "close" && !NEAR_PLACEMENTS.includes(placementV))
-            ? "close to the camera" : placementV,
-        expression: exprSlot, lighting: light,
+        framing: framingTextV,
+        focus: focusV, pose: poseV,
+        placement: placementV,
+        expression: exprSlot, lighting: lightV,
         outfit: outfitSlot,
         quality: "editorial photography, natural light" };
     const tmpl = (s.session.template || "").trim() || DEFAULT_TEMPLATE;

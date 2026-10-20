@@ -338,5 +338,120 @@ def test_walk_order_parity_js():
     assert sorted(order) == list(range(41))
 
 
+def test_arc_coupling_parity_js():
+    """the arc's per-shot couplings (pose / placement / crop / focus)
+    must swap to the SAME replacement on both sides: every library item
+    that can ride a feed, crossed with quiet, middle and climax levels
+    and several shot indexes -- the swap-heavy states, not just the
+    no-op ones"""
+    import json
+    from PerfectLab.series_nodes import (_pose_for_level, _placement_for_level,
+                                         _framing_for_level, _focus_for_level,
+                                         PLACEMENTS)
+    from PerfectLab.shoot_nodes import POSES, FRAMINGS, FOCUS
+    repo = os.path.join(CUSTOM_NODES, "PerfectLab")
+    lib_url = "file:///" + os.path.join(repo, "web", "perfectlab_libraries.js").replace("\\", "/")
+    lib2 = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+    code = ("import { POSE_LIB, FRAMING_LIB, FOCUS_LIB } from '" + lib_url + "';\n"
+            + "import { PLACEMENT_LIB } from '" + lib2 + "';\n"
+            + "console.log(JSON.stringify({poses: POSE_LIB, places: PLACEMENT_LIB, frames: FRAMING_LIB, focus: FOCUS_LIB}));")
+    r = subprocess.run(["node", "--input-type=module", "-e", code],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    js_libs = json.loads(r.stdout)
+    assert js_libs["poses"] == POSES, "POSE_LIB drift vs POSES"
+    assert js_libs["places"] == PLACEMENTS, "PLACEMENT_LIB drift vs PLACEMENTS"
+    assert js_libs["frames"] == FRAMINGS, "FRAMING_LIB drift vs FRAMINGS"
+    assert js_libs["focus"] == FOCUS, "FOCUS_LIB drift vs FOCUS"
+
+    from PerfectLab.shoot_nodes import _arc_tables
+    arcs = sorted(_arc_tables()[0])
+    cases = []   # [fn, feed, item, lvl, i, tier, pose]
+    for i in range(4):
+        for lvl in (0.05, 0.34, 0.5, 0.66, 0.95):
+            for pose in (POSES[0], POSES[-1]):
+                cases.append(["pose", POSES, POSES[i % len(POSES)], lvl, i, None, None])
+                cases.append(["place", PLACEMENTS, PLACEMENTS[i], lvl, i,
+                              i % 2 == 0, None])
+                cases.append(["crop", FRAMINGS, FRAMINGS[i % len(FRAMINGS)], lvl, i, None, None])
+                cases.append(["focus", FOCUS, FOCUS[i % len(FOCUS)], lvl, i,
+                              ["close", "medium", "figure"][i % 3], pose])
+    # every library item that can contradict the level gets its own case
+    for pose in POSES:
+        cases.append(["pose", POSES, pose, 0.05, 0, None, None])
+        cases.append(["pose", POSES, pose, 0.95, 3, None, None])
+    for pl in PLACEMENTS:
+        cases.append(["place", PLACEMENTS, pl, 0.05, 1, False, None])
+        cases.append(["place", PLACEMENTS, pl, 0.95, 2, True, None])
+    for fr in FRAMINGS:
+        cases.append(["crop", FRAMINGS, fr, 0.05, 2, None, None])
+        cases.append(["crop", FRAMINGS, fr, 0.95, 1, None, None])
+    for fo in FOCUS:
+        cases.append(["focus", FOCUS, fo, 0.05, 0, "close", POSES[0]])
+        cases.append(["focus", FOCUS, fo, 0.95, 4, "medium", POSES[-1]])
+
+    py = []
+    for fn, feed, item, lvl, i, tier, pose in cases:
+        if fn == "pose":
+            py.append(_pose_for_level(feed, item, lvl, i)[0])
+        elif fn == "place":
+            py.append(_placement_for_level(item, lvl, i, bool(tier))[0])
+        elif fn == "crop":
+            py.append(_framing_for_level(feed, item, lvl, i)[0])
+        else:
+            py.append(_focus_for_level(feed, item, lvl, i, tier, pose)[0])
+
+    lib2_url = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+    # Windows caps the command line: the case list rides in a temp file
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
+                                     encoding="utf-8") as tf:
+        json.dump(cases, tf)
+        cases_path = tf.name
+    code2 = ("import { poseForLevel, placementForLevel, framingForLevel, focusForLevel } from '"
+             + lib2_url + "';\n"
+             + "import fs from 'node:fs';\n"
+             + "const cases = JSON.parse(fs.readFileSync(process.env.PLX_CASES, 'utf8'));\n"
+             + "console.log(JSON.stringify(cases.map(([fn, feed, item, lvl, i, tier, pose]) =>\n"
+             + "  fn === 'pose' ? poseForLevel(feed, item, lvl, i)\n"
+             + "  : fn === 'place' ? placementForLevel(item, lvl, i, !!tier)\n"
+             + "  : fn === 'crop' ? framingForLevel(feed, item, lvl, i)\n"
+             + "  : focusForLevel(feed, item, lvl, i, tier, pose))));")
+    try:
+        r2 = subprocess.run(["node", "--input-type=module", "-e", code2],
+                            capture_output=True, text=True,
+                            env={**os.environ, "PLX_CASES": cases_path})
+    finally:
+        os.unlink(cases_path)
+    assert r2.returncode == 0, r2.stderr
+    js = json.loads(r2.stdout)
+    drift = [(c, j, p) for c, j, p in zip(cases, js, py) if j != p]
+    assert not drift, f"coupling drift: {drift[:5]}"
+
+
+def test_arc_sequence_parity_js():
+    """the arc's expression route and its per-shot energies must match
+    between the engine and the preview, for every arc and every length"""
+    import json
+    from PerfectLab.shoot_nodes import arc_seq, arc_levels
+    repo = os.path.join(CUSTOM_NODES, "PerfectLab")
+    lib_url = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+    names = sorted(arc_seq.__globals__.get("ARCS", arc_seq.__globals__.get("ARC_LIB"))
+                   or arc_seq.__globals__["_arc_tables"]()[0])
+    cases = [[n, c] for n in names for c in (1, 2, 5, 6, 12)]
+    code = ("import { arcSeq, arcLevels } from '" + lib_url + "';\n" +
+            "const cases = " + json.dumps(cases) + ";\n" +
+            "console.log(JSON.stringify(cases.map(([n, c]) => [arcSeq(n, c), arcLevels(n, c)])));")
+    r = subprocess.run(["node", "--input-type=module", "-e", code],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    js = json.loads(r.stdout)
+    for (name, count), (js_seq, js_levels) in zip(cases, js):
+        py_seq, py_levels = arc_seq(name, count), arc_levels(name, count)
+        assert list(js_seq) == list(py_seq), f"arcSeq drift {name}/{count}"
+        assert [round(x, 6) for x in js_levels] == [round(x, 6) for x in py_levels], \
+            f"arcLevels drift {name}/{count}"
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
