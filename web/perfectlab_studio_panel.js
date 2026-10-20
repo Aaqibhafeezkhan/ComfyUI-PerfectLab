@@ -11,7 +11,7 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.9";
+    from "./perfectlab_panel_factory.js?v=1.1.10";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
@@ -20,19 +20,19 @@ import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          NEAR_PLACEMENTS, arcLevels, poseForLevel, framingForLevel, focusForLevel,
          placementForLevel, toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.9";
+    from "./perfectlab_lib.js?v=1.1.10";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.9";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.10";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.9";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.10";
     document.head.append(link);
 }
 
@@ -807,10 +807,12 @@ const liveText = (s, seed = 0) => {
             !sceneOff && s.scene.location, !sceneOff && s.scene.weather,
             !sceneOff && s.scene.details, !sceneOff && propsClause,
             light, styleSlot,
-            framings.join(", "),
-            focus.join(", "),
+            // the engine's tag order (perfectlab_studio.py): poses and
+            // expressions ride BEFORE the framing and the focus
             poses.join(", "),
             expressions.join(", "),
+            framings.join(", "),
+            focus.join(", "),
             s.shot.custom,
         ].filter(Boolean).map(t => (t === s.shot.main_prompt || t === s.shot.custom) ? t : stripArticles(t));
         const rawTags = tags.join(", ");
@@ -895,6 +897,27 @@ const liveText = (s, seed = 0) => {
     const tmpl = (s.session.template || "").trim() || DEFAULT_TEMPLATE;
     let filled = tmpl;
     for (const k of TEMPLATE_KEYS) filled = filled.split("{" + k + "}").join(slotVals[k] || "");
+    // the engine's auto-trim (series_nodes): over the model's token
+    // limit the guard drops the low-priority slots -- lighting first,
+    // then placement, then style -- and recomposes from the template.
+    // The estimate reads the raw fill, holes included, exactly like
+    // the engine's _tokens; 'off' disables, and an unknown string falls
+    // back to the 512 default the engine falls back to
+    const limitRaw = String(s.session.token_limit ?? "512");
+    const limitNums = limitRaw.match(/\d+/g);
+    const limitNow = limitRaw.trim().toLowerCase() === "off"
+        ? null : (limitNums ? +limitNums[limitNums.length - 1] : 512);
+    if (limitNow) {
+        const tkRaw = (t) => Math.max(1, Math.round(t.length / 3.6));
+        const trimVals = { ...slotVals };
+        for (const dk of ["lighting", "placement", "style"]) {
+            if (tkRaw(filled) <= limitNow) break;
+            if (!trimVals[dk]) continue;
+            trimVals[dk] = "";
+            filled = tmpl;
+            for (const k of TEMPLATE_KEYS) filled = filled.split("{" + k + "}").join(trimVals[k] || "");
+        }
+    }
     if (!focusV) filled = filled.replace(/focused on\s*(\.|,|$)\s*/g, " ");
     // dissolve the holes empty slots leave: drop letter-less sentences,
     // tidy the separator runs -- a reset state reads clean instead of

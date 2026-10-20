@@ -429,6 +429,92 @@ def test_arc_coupling_parity_js():
     assert not drift, f"coupling drift: {drift[:5]}"
 
 
+def test_tags_mode_part_order():
+    """SDXL tags read person, look, scene, light, style, then POSES and
+    EXPRESSIONS, then the framing and the focus -- the engine's order,
+    pinned so the preview never re-shuffles it"""
+    state = {
+        "_v": 2, "shot": {"style_mode": "tags"},
+        "session": {"count": 1},
+        "persona": {"trigger": "", "fields": {"gender": "a young woman"}},
+        "scene": {"location": "a plain city crosswalk", "weather": "light rain"},
+        "light": {"setup": "hard midday sun"},
+        "style": {"grade": "cinematic teal and orange grade"},
+        "pose": {"poses": {"mode": "pin", "set": [], "pin": 3}},
+        "expression": {"expressions": {"mode": "pin", "set": [], "pin": 2}},
+        "camera": {"framings": {"mode": "pin", "set": [], "pin": 14},
+                   "focus": {"mode": "pin", "set": [], "pin": 4},
+                   "formats": {"mode": "pin", "set": [], "pin": 0}},
+    }
+    p = perfectlab_studio._run_session(state, 1, 0, -1)[0][0]
+    parts = [x.strip() for x in p.split(",")]
+    i_pose = parts.index("walking toward the camera")
+    i_expr = parts.index("biting her lower lip")   # its comma splits the phrase
+    i_fram = parts.index("extreme wide establishing shot")
+    i_focus = parts.index("full figure")
+    assert i_pose < i_expr < i_fram < i_focus, f"tags order drifted: {p!r}"
+    # tags carry no leading articles
+    assert not any(x.startswith(("a ", "an ", "the ")) for x in parts), p
+
+
+def test_subject_weave_parity_js():
+    """the expression weaves onto the persona's lead clause in three
+    shapes (an article takes 'with', a participle appends, a bare
+    absolute takes commas) -- both sides must agree on every shape,
+    with and without a tail after the person's first comma"""
+    import json
+    from PerfectLab.series_nodes import _subject_weave
+    repo = os.path.join(CUSTOM_NODES, "PerfectLab")
+    lib_url = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+    pairs = [
+        ["a young woman", "a teasing wink with the tongue out"],
+        ["a young woman, long platinum waves, honey blonde", "a soft direct gaze"],
+        ["a young woman", "laughing out loud, wide open mouth, crinkled joyful eyes"],
+        ["a young woman", "smiling softly"],
+        ["a young woman, a slender figure", "a calm read"],
+        ["a mature man", "whispering something to the camera"],
+        ["a young woman", "an easy grin"],
+    ]
+    code = ("import { subjectWeave } from '" + lib_url + "';\n" +
+            "const pairs = " + json.dumps(pairs) + ";\n" +
+            "console.log(JSON.stringify(pairs.map(([p, e]) => subjectWeave(p, e))));")
+    r = subprocess.run(["node", "--input-type=module", "-e", code],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    js = json.loads(r.stdout)
+    for (person, expr), js_text in zip(pairs, js):
+        assert js_text == _subject_weave(person, expr), \
+            f"weave drift: ({person!r}, {expr!r})"
+
+
+def test_auto_trim_drops_low_priority_slots():
+    """over the limit the guard drops lighting first, then placement,
+    then style, and recomposes; 'off' never trims"""
+    rich = {
+        "_v": 2, "shot": {}, "session": {"count": 1, "token_limit": "SDXL · 75"},
+        "persona": {"trigger": "", "fields": {
+            "gender": "a young woman", "hair": "long platinum waves",
+            "hair_color": "honey blonde", "eyes": "pale blue eyes",
+            "makeup": ["bold red lipstick", "heavy black winged eyeliner"],
+            "skin": "porcelain skin", "figure": "a curvy hourglass figure"}},
+        "scene": {"location": "a rooftop cafe", "weather": "light rain",
+                  "details": "string lights over the railing, a distant skyline"},
+        "light": {"setup": "hard midday sun with crisp deep shadows"},
+        "style": {"grade": "cinematic teal and orange grade"},
+    }
+    p75 = perfectlab_studio._run_session(rich, 1, 0, -1)[0][0]
+    assert "midday sun" not in p75, "lighting must drop first when over budget"
+    assert "centered in frame" not in p75, "placement drops next"
+    assert "teal and orange" not in p75, "style drops last"
+    assert "rooftop cafe" in p75, "the scene never drops"
+    rich["session"]["token_limit"] = "off"
+    p_off = perfectlab_studio._run_session(rich, 1, 0, -1)[0][0]
+    assert "midday sun" in p_off
+    rich["session"]["token_limit"] = "Z-Image / Turbo · 400"
+    p400 = perfectlab_studio._run_session(rich, 1, 0, -1)[0][0]
+    assert "midday sun" in p400, "a rich single shot fits 400 tokens"
+
+
 def test_arc_sequence_parity_js():
     """the arc's expression route and its per-shot energies must match
     between the engine and the preview, for every arc and every length"""
