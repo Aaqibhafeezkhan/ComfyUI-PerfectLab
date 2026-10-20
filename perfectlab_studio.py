@@ -146,14 +146,53 @@ def _run_session(config, count, seed, shot_pick):
     slots = compose_slots(config, count, seed)
     main = (shot.get("main_prompt") or "").strip()
     custom = (shot.get("custom") or "").strip()
+
+    def _picked(sel):
+        """a selection the USER made: a pin, or a non-empty multi set.
+        Mode 'all' with nothing picked is the walk default, not a pick --
+        the walk pools are always non-empty, so they must never count
+        toward 'is this session blank'"""
+        if not isinstance(sel, dict):
+            return False
+        if sel.get("mode") == "pin":
+            return sel.get("pin") is not None
+        if sel.get("mode") == "multi":
+            return bool(sel.get("set"))
+        return False
+
+    def _fmt_picked(cam):
+        # formats default to pin 0, "follows framing" -- a no-op, not a
+        # pick; only a real format choice counts
+        sel = cam.get("formats") or {}
+        if sel.get("mode") == "multi":
+            return bool(sel.get("set"))
+        if sel.get("mode") == "pin":
+            try:
+                return int(sel.get("pin")) != 0
+            except (TypeError, ValueError):
+                return False
+        return False
+
     # a blank session composes nothing: no picks anywhere and no own
     # lines means no walk-in words either -- a full reset renders an
     # empty prompt and the panel's LIVE TEXT shows exactly that. Any
     # single pick (or a typed line) switches the full machinery back
-    # on, placement rotation and quality line included
-    content = [main, custom] + [slots.get(k) for k in
-               ("person", "wardrobe", "scene", "light", "style",
-                "poses", "expressions", "framings", "focus", "formats")]
+    # on, placement rotation and quality line included. The pick-driven
+    # slots (person, wardrobe, scene, light, style) are empty when
+    # nothing is picked; the walked lists are tested as PICKS, not as
+    # the pools the walk fills
+    pose_sec = _section(config, "pose") or {}
+    expr_sec = _section(config, "expression") or {}
+    cam_sec = _section(config, "camera") or {}
+    content = [main, custom,
+               slots.get("person"), slots.get("wardrobe"), slots.get("scene"),
+               slots.get("light"), slots.get("style"),
+               _picked(pose_sec.get("poses")),
+               (expr_sec.get("arc") or "").strip()
+               or _picked(expr_sec.get("expressions")),
+               _picked(cam_sec.get("framings")),
+               _picked(cam_sec.get("focus")),
+               _fmt_picked(cam_sec)]
     if not any(content):
         from .series_nodes import TIER_RATIOS, _ratio_size
         w, h = _ratio_size(TIER_RATIOS["medium"])

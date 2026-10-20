@@ -11,26 +11,27 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.7";
+    from "./perfectlab_panel_factory.js?v=1.1.8";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
-         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk, clockLight, composeLook, walkList,
+         PLACEMENT_LIB, TIERS, MACRO_SHOES, clockLight, composeLook, walkList,
+         NEAR_PLACEMENTS,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.7";
+    from "./perfectlab_lib.js?v=1.1.8";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.7";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.8";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.7";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.8";
     document.head.append(link);
 }
 
@@ -762,14 +763,29 @@ const liveText = (s, seed = 0) => {
             : [walkList(EXPRESSION_LIB, s.expression.expressions, sesCount, seed, 2)[0]])
         .filter(Boolean);
     // the engine composes nothing from a blank session (_run_session in
-    // perfectlab_studio.py): no picks and no own lines anywhere means no
-    // walk-in words either -- a full reset previews as an empty LIVE TEXT.
-    // Any pick (or a typed line) switches the full machinery back on
+    // perfectlab_studio.py). A session is blank when the user PICKED
+    // nothing and typed nothing: mode "all" with an empty set is the
+    // walk default and the walk pools are always non-empty -- they are
+    // not picks. Any real pick (or a typed line) switches the full
+    // machinery back on
+    const pickedSel = (sel2) => {
+        sel2 = sel2 || {};
+        if (sel2.mode === "pin") return sel2.pin != null;
+        if (sel2.mode === "multi") return !!(sel2.set && sel2.set.length);
+        return false;
+    };
+    const fmtPicked = (sel2) => {
+        sel2 = sel2 || {};
+        if (sel2.mode === "multi") return !!(sel2.set && sel2.set.length);
+        if (sel2.mode === "pin") return sel2.pin != null && +sel2.pin !== 0;
+        return false;
+    };
     const anyContent = [
         s.shot.main_prompt, s.shot.custom, per, outfitSlot,
         sceneSlot, light, styleSlot,
-        framings.length && "framing", focus.length && "focus", fmt.length && "format",
-        poses.length && "pose", expressions.length && "expression",
+        pickedSel(s.pose.poses),
+        (s.expression.arc || "").trim() || pickedSel(s.expression.expressions),
+        pickedSel(s.camera.framings), pickedSel(s.camera.focus), fmtPicked(s.camera.formats),
     ].some(Boolean);
     if (!anyContent) return { text: "", raw: "", parts: [], tokens: 0 };
     // SDXL tag mode: a flat comma list, no prose labels -- the same shape
@@ -819,6 +835,10 @@ const liveText = (s, seed = 0) => {
     // the engine's text stays the source of truth for what renders
     const firstOf = (arr) => (arr && arr.length ? arr[0] : "");
     const tier = TIERS[framings[0]] || "medium";
+    // the engine's placement is a plain index cycle -- no shuffle -- and
+    // a close crop clamps it to the near set (series_nodes.py). The arc
+    // couplings can still move it per shot; the preview is shot 1
+    const placementV = PLACEMENT_LIB[0] || "";
     // the trigger already rides inside per (compose_blocks appends it to
     // the identity block) -- do not add it a second time
     let personSlot = per || "";
@@ -834,7 +854,8 @@ const liveText = (s, seed = 0) => {
     const slotVals = { person: personSlot, scene: sceneSlot, style: styleSlot,
         framing: framings[0] ? framingText(framings[0]) : "",
         focus: focusV, pose: firstOf(poses) || "",
-        placement: walk(PLACEMENT_LIB, null, 1, seed)[0] || "",
+        placement: (tier === "close" && !NEAR_PLACEMENTS.includes(placementV))
+            ? "close to the camera" : placementV,
         expression: exprSlot, lighting: light,
         outfit: outfitSlot,
         quality: "editorial photography, natural light" };

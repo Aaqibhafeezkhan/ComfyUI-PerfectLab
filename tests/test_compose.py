@@ -114,6 +114,41 @@ def test_blank_session_composes_nothing():
     assert widths and heights and len(widths) == len(heights) == 3
 
 
+def test_full_panel_reset_state_composes_nothing():
+    """the REAL panel state: every section present, the walked lists on
+    their mode-'all' default, nothing picked. The walk pools are always
+    non-empty (the engine walks the whole library), so the blank gate
+    must read PICKS, not pools -- a state with all sections used to
+    slip past the gate and compose walked poses on a full reset"""
+    state = {
+        "_v": 2, "off": [],
+        "negative": {"enabled": False, "text": "", "presets": []},
+        "persona": {"trigger": "", "fields": {}},
+        "look": {"looks": [{"name": "Look 1"}]},
+        "scene": {"location": "", "weather": "", "details": ""},
+        "light": {"setup": "", "hour": -1},
+        "style": {"grade": "", "film": "", "palette": ""},
+        "pose": {"poses": {"mode": "all", "set": [], "pin": None}},
+        "expression": {"arc": "", "expressions": {"mode": "all", "set": [], "pin": None}},
+        "camera": {"framings": {"mode": "all", "set": [], "pin": None},
+                   "focus": {"mode": "all", "set": [], "pin": None},
+                   "formats": {"mode": "pin", "set": [], "pin": 0}},
+        "shot": {"main_prompt": "", "custom": "", "style_mode": "natural"},
+        "session": {"count": 6},
+    }
+    prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
+    assert prompts == [""] * 6
+    # one real pick switches the full machinery back on
+    state["scene"]["location"] = "a rooftop cafe"
+    prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
+    assert "rooftop cafe" in prompts[0]
+    # a pinned format is a pick too; the pin-0 default is not
+    state["scene"]["location"] = ""
+    state["camera"]["formats"] = {"mode": "pin", "set": [], "pin": 3}
+    prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
+    assert prompts[0].strip()
+
+
 def test_one_pick_restores_the_full_machinery():
     config = {"_v": 2, "shot": {}, "session": {},
               "scene": {"location": "a rooftop cafe"}}
