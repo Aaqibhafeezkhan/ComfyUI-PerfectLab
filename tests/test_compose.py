@@ -254,6 +254,10 @@ def test_inline_choices_parity_js():
         ["a {rainy|sunny} day and {one|two|three} more", 999],
         ["{a {x|y} nest}", 42],
         ["no braces at all", 5],
+        # beyond ASCII the engine hashes UTF-8 bytes -- a Cyrillic word,
+        # an emoji: the JS mirror must hash the same bytes, not UTF-16
+        ["{красное|зелёное|синее} платье", 20260204],
+        ["{😀|😎} mood and {киевский|питерский} вечер", 7],
     ]
     code = ("import { resolveChoices } from '" + lib_url + "';\n" +
             "const cases = " + json.dumps(cases) + ";\n" +
@@ -265,6 +269,38 @@ def test_inline_choices_parity_js():
     for (text, seed), js_text in zip(cases, js):
         py_text = resolve_choices(text, seed)
         assert js_text == py_text, f"choice drift: {text} | js: {js_text} | py: {py_text}"
+
+
+def test_walk_order_parity_js():
+    """the panel preview must walk the exact order the session walks:
+    pin holds, a picked set rotates, everything else walks the whole
+    library in the shared xorshift order"""
+    import json
+    from PerfectLab.shoot_nodes import _walk_order, walk_list
+    repo = os.path.join(CUSTOM_NODES, "PerfectLab")
+    lib_url = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+    cases = [
+        # [items, sel, count, seed, salt]
+        [["a", "b", "c", "d"], {"mode": "all", "set": [], "pin": None}, 5, 0, 1],
+        [["a", "b", "c", "d", "e", "f", "g", "h"], {"mode": "multi", "set": [2, 5], "pin": None}, 4, 0, 0],
+        [["a", "b", "c"], {"mode": "pin", "set": [], "pin": 2}, 3, 0, 3],
+        [[str(i) for i in range(41)], {"mode": "all", "set": [], "pin": None}, 7, 0, 2],
+        # a multi with an EMPTY set falls through to the whole-library walk
+        [["a", "b", "c", "d", "e"], {"mode": "multi", "set": [], "pin": None}, 5, 0, 4],
+    ]
+    code = ("import { walkList } from '" + lib_url + "';\n" +
+            "const cases = " + json.dumps(cases) + ";\n" +
+            "console.log(JSON.stringify(cases.map(c => walkList(...c))));")
+    r = subprocess.run(["node", "--input-type=module", "-e", code],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    js = json.loads(r.stdout)
+    for (items, sel, count, seed, salt), js_walk in zip(cases, js):
+        py_walk = walk_list(items, sel, count, seed, salt)
+        assert js_walk == py_walk, f"walk drift (salt {salt}): js {js_walk} vs py {py_walk}"
+    # the order itself is a full permutation, every item exactly once per cycle
+    order = _walk_order(41, 2)
+    assert sorted(order) == list(range(41))
 
 
 if __name__ == "__main__":

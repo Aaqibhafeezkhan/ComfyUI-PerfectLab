@@ -30,7 +30,8 @@ import re
 from .person_node import compose_blocks, BLOCK_ORDER
 from .wardrobe_node import looks_from_state
 from .look_nodes import PerfectLabScene, PerfectLabLight, PerfectLabStyle
-from .shoot_nodes import PerfectLabPose, PerfectLabExpression, PerfectLabCamera
+from .shoot_nodes import (PerfectLabPose, PerfectLabExpression, PerfectLabCamera,
+                          _fnv)
 from .series_nodes import PerfectLabSeries, DEFAULT_TEMPLATE
 from .prompt_assistant import PerfectLabAssistant
 
@@ -310,16 +311,6 @@ def resolve_wildcards(text, seed):
         return lines[_fnv("{}|__{}__|wc".format(seed, m.group(1))) % len(lines)]
 
     return _WC_RE.sub(pick, text)
-
-
-def _fnv(data):
-    """FNV-1a 32-bit -- the same hash the JS mirror runs, so the panel
-    preview picks the same alternative the engine picks"""
-    h = 2166136261
-    for ch in data.encode("utf-8"):
-        h ^= ch
-        h = (h * 16777619) & 0xFFFFFFFF
-    return h
 
 
 def resolve_choices(text, seed, salt=0):

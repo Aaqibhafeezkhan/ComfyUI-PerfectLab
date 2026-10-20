@@ -14,7 +14,6 @@ the tier coupling). Each section walks or pins independently.
 import json
 import math
 import os
-import random
 
 POSES = [
     "standing relaxed",
@@ -253,11 +252,39 @@ def arc_levels(arc, count):
 # pairing repeats through the series. A permutation seeded by (salt, n)
 # keeps every item exactly once per cycle and gives each list its own
 # order, so pairings decorrelate.
+#
+# The shuffle itself is xorshift32 seeded from the shared FNV below --
+# the JS mirror (walkOrder in perfectlab_lib.js) runs the exact same
+# Fisher-Yates rounds, so the panel preview walks the exact order the
+# session walks. (The old seed was random.Random(salt, n), whose
+# Mersenne Twister has no honest JS mirror; switching re-rolls the walk
+# order once, then both sides agree forever.)
+def _fnv(data):
+    """FNV-1a 32-bit -- the one hash the whole kit shares (resolvers,
+    walk order), so the JS mirror picks what the engine picks"""
+    h = 2166136261
+    for ch in str(data).encode("utf-8"):
+        h ^= ch
+        h = (h * 16777619) & 0xFFFFFFFF
+    return h
+
+
 def _walk_order(n, salt):
     if n <= 1:
         return [0]
     idx = list(range(n))
-    random.Random("%d-%d" % (salt, n)).shuffle(idx)
+    x = _fnv("%d-%d" % (salt, n)) or 0x9E3779B9
+
+    def rnd():
+        nonlocal x
+        x = (x ^ ((x << 13) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        x = (x ^ (x >> 17)) & 0xFFFFFFFF
+        x = (x ^ ((x << 5) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        return x
+
+    for i in range(n - 1, 0, -1):
+        j = rnd() % (i + 1)
+        idx[i], idx[j] = idx[j], idx[i]
     return idx
 
 

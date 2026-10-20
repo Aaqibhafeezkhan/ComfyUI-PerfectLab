@@ -9,7 +9,7 @@
 // Python engine sources); this file re-exports them and keeps the logic
 // tables that mirror series_nodes.py.
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB }
-    from "./perfectlab_libraries.js?v=1.1.6";
+    from "./perfectlab_libraries.js?v=1.1.7";
 export { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB };
 
 export const ARC_LIB = {
@@ -121,12 +121,56 @@ export const RATIOS = { "1:1": 1.0, "4:5": 0.8, "3:4": 0.75, "2:3": 2 / 3, "9:16
 export const TIER_RATIOS = { close: "1:1", medium: "4:5", figure: "2:3" };
 
 // {a|b|c} inline choices resolved the way the engine resolves them --
-// the same FNV-1a pick (ASCII content; the libraries are English words),
-// so the live preview shows the alternative the shot will actually carry
+// the same FNV-1a pick, so the live preview shows the alternative the
+// shot will actually carry. The engine hashes UTF-8 BYTES
+// (perfectlab_studio._fnv encodes first); charCodeAt would hash UTF-16
+// units and the two diverge the moment a typed choice carries anything
+// beyond ASCII -- a Russian word, an em dash, an emoji
 const fnv1a = (data) => {
     let h = 2166136261;
-    for (let i = 0; i < data.length; i++) { h ^= data.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const bytes = new TextEncoder().encode(data);
+    for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619); }
     return h >>> 0;
+};
+// the session's walk order, mirrored from shoot_nodes._walk_order:
+// xorshift32 seeded from the shared FNV, Fisher-Yates descending -- the
+// same rounds on both sides, so the preview walks the exact order the
+// session walks
+export const walkOrder = (n, salt) => {
+    if (n <= 1) return [0];
+    const idx = [...Array(n).keys()];
+    let x = fnv1a(salt + "-" + n) || 0x9E3779B9;
+    const rnd = () => {
+        x = ((x ^ ((x << 13) >>> 0)) >>> 0);
+        x = ((x ^ (x >>> 17)) >>> 0);
+        x = ((x ^ ((x << 5) >>> 0)) >>> 0);
+        return x;
+    };
+    for (let i = n - 1; i > 0; i--) {
+        const j = rnd() % (i + 1);
+        [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx;
+};
+// walk_list mirrored: a pin holds, a picked set rotates, everything
+// else (mode "all", or a multi with an empty set) walks the whole
+// library in the shared order -- one entry per shot, shot 1 first
+export const walkList = (items, sel, count, seed, salt) => {
+    const clean = (items || []).filter(i => typeof i === "string" && i.trim());
+    const arr = clean.length ? clean : [""];
+    const n = arr.length;
+    sel = (sel && typeof sel === "object") ? sel : {};
+    const mode = sel.mode || "all";
+    if (mode === "pin" && sel.pin != null) {
+        const pin = (((+sel.pin % n) + n) % n);
+        return [...Array(count)].fill(arr[pin]);
+    }
+    if (mode === "multi" && Array.isArray(sel.set) && sel.set.length) {
+        const set_ = sel.set.map(x => (((+x % n) + n) % n));
+        return [...Array(count)].map((_, i) => arr[set_[i % set_.length]]);
+    }
+    const order = walkOrder(n, salt);
+    return [...Array(count)].map((_, i) => arr[order[i % n]]);
 };
 // __filename__ tokens resolve to a line of web/wildcards/filename.txt --
 // the same FNV pick the engine runs, so the preview carries what the shot

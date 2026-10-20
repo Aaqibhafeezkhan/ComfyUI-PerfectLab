@@ -11,26 +11,26 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.6";
+    from "./perfectlab_panel_factory.js?v=1.1.7";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
-         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk, clockLight,
+         PLACEMENT_LIB, TIERS, MACRO_SHOES, walk, clockLight, composeLook, walkList,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.6";
+    from "./perfectlab_lib.js?v=1.1.7";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.6";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.7";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.6";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.7";
     document.head.append(link);
 }
 
@@ -706,29 +706,37 @@ const liveText = (s, seed = 0) => {
     const per = ["identity", "figure", "hair", "face", "skin", "signature"]
         .map(k2 => pBlocks[k2]).filter(Boolean).join(", ");
     const look0 = lookOff ? {} : ((s.look.looks || [])[0] || {});
-    const piece = (name, color, material) =>
-        [material, name].filter(Boolean).join(" ") + (color ? ` in ${color}` : "");
-    const wearing = [look0.top && piece(look0.top, look0.top_color, look0.top_material),
-                     look0.bottom && piece(look0.bottom, look0.bottom_color, look0.bottom_material)]
-                    .filter(Boolean).join(" with ");
-    const shoePiece = (l) => [l.footwear_material, l.footwear].filter(Boolean).join(" ")
-        + (l.footwear_color ? ` in ${l.footwear_color}` : "");
-    const extras = [look0.footwear && shoePiece(look0),
-                     look0.headwear && (look0.headwear_color ? look0.headwear_color + " " : "") + look0.headwear,
-                     Array.isArray(look0.accessories) && look0.accessories.length
-                       ? look0.accessories.join(", ") + (look0.acc_color ? ` in ${look0.acc_color}` : "")
-                       : "",
-                     look0.details].filter(Boolean).join(", ");
-    const poses = poseOff ? [] : (s.pose.poses.mode === "pin" ? [POSE_LIB[s.pose.poses.pin]] :
-                    s.pose.poses.set || []).map(i => POSE_LIB[i]).filter(Boolean);
-    const framings = camOff ? [] : (s.camera.framings.mode === "pin"
-                       ? [FRAMING_LIB[s.camera.framings.pin]]
-                       : (s.camera.framings.set || []).map(i => FRAMING_LIB[i])).filter(Boolean);
-    const focus = camOff ? [] : (s.camera.focus.mode === "pin" ? [FOCUS_LIB[s.camera.focus.pin]]
-                   : (s.camera.focus.set || []).map(i => FOCUS_LIB[i])).filter(Boolean);
+    // the wardrobe slot rides the SAME composer the engine uses: the
+    // exact mirror of compose_look (materials prefix the garment, "none"
+    // placeholders empty the slot, a lingerie set is the whole outfit, a
+    // hat color sits inside its article, accessories take their color
+    // each and join with "and") -- quirks included
+    const lookText = composeLook(look0);
+    // the template's outfit slot carries its own "wearing", so the
+    // composer's leading one strips off -- the tags branch does the
+    // same with its own replace
+    const outfitSlot = lookText.replace(/^wearing\s+/, "");
+    // the engine walks its lists per shot (shoot_nodes.walk_list): a pin
+    // holds, a picked set rotates, everything else -- mode "all", or a
+    // multi with an empty set -- walks the WHOLE library in the shared
+    // deterministic order. The preview is shot 1 of the session
+    const sesCount = Math.max(1, +s.session.count || 1);
+    const poses = poseOff ? [] : [walkList(POSE_LIB, s.pose.poses, sesCount, seed, 1)[0]]
+        .filter(Boolean);
+    const framingSel = s.camera.framings;
+    let framings = [];
+    if (!camOff) {
+        framings = (s.camera.framing_order === "wide-to-close"
+                    && (framingSel.mode || "all") === "all" && !(framingSel.set || []).length)
+            // the dramaturgy opens on the widest crop, reversed plain range
+            ? [FRAMING_LIB[FRAMING_LIB.length - 1]]
+            : [walkList(FRAMING_LIB, framingSel, sesCount, seed, 0)[0]];
+    }
+    const focus = camOff ? [] : [walkList(FOCUS_LIB, s.camera.focus, sesCount, seed, 3)[0]]
+        .filter(Boolean);
     const fmtSel = s.camera.formats;
-    const fmt = camOff ? [] : (fmtSel.set || (fmtSel.mode === "pin" ? [fmtSel.pin] : []))
-        .map(i => FORMAT_LIB[i]).filter(f => f && f !== "follows framing");
+    const fmt = camOff ? [] : [walkList(FORMAT_LIB, fmtSel, sesCount, seed, 4)[0]]
+        .filter(f => f && f !== "follows framing");
     // the engine's slot writers, mirrored from look_nodes.py and
     // prompt_assistant.py: the scene leads with "the setting is", the
     // palette carries its label, a clock hour reads the Prompt
@@ -745,15 +753,20 @@ const liveText = (s, seed = 0) => {
         !camOff && s.camera.lens, !camOff && s.camera.composition,
     ].filter(Boolean).join(", ");
     const light = sceneOff ? "" : (s.light.setup || (s.light.hour >= 0 ? clockLight(s.light.hour) : ""));
-    const expressions = exprOff ? [] : (s.expression.expressions.mode === "pin"
-        ? [s.expression.expressions.pin] : (s.expression.expressions.set || []))
-        .map(i => EXPRESSION_LIB[i]).filter(Boolean);
+    // a picked arc replaces the expression walk outright (the engine's
+    // arc_seq leads) -- the arc's own energies ride META, the preview
+    // only owes the words
+    const expressions = exprOff ? []
+        : (s.expression.arc
+            ? [arcSeq(s.expression.arc, sesCount)[0]]
+            : [walkList(EXPRESSION_LIB, s.expression.expressions, sesCount, seed, 2)[0]])
+        .filter(Boolean);
     // the engine composes nothing from a blank session (_run_session in
     // perfectlab_studio.py): no picks and no own lines anywhere means no
     // walk-in words either -- a full reset previews as an empty LIVE TEXT.
     // Any pick (or a typed line) switches the full machinery back on
     const anyContent = [
-        s.shot.main_prompt, s.shot.custom, per, wearing, extras,
+        s.shot.main_prompt, s.shot.custom, per, outfitSlot,
         sceneSlot, light, styleSlot,
         framings.length && "framing", focus.length && "focus", fmt.length && "format",
         poses.length && "pose", expressions.length && "expression",
@@ -769,9 +782,7 @@ const liveText = (s, seed = 0) => {
         const tags = [
             s.shot.main_prompt,
             per && stripArticles(per),
-            (wearing || extras) && stripArticles(wearing
-                ? `${wearing}${extras ? ", " + extras : ""}`.replace("wearing ", "")
-                : extras),
+            outfitSlot && stripArticles(outfitSlot),
             !sceneOff && s.scene.location, !sceneOff && s.scene.weather,
             !sceneOff && s.scene.details, !sceneOff && propsClause,
             light, styleSlot,
@@ -789,9 +800,7 @@ const liveText = (s, seed = 0) => {
     const parts = [
         s.shot.main_prompt,
         per,
-        (wearing || extras) && (wearing
-            ? `wearing ${wearing}${extras ? ", " + extras : ""}`
-            : extras),
+        lookText,
         !sceneOff && s.scene.location, !sceneOff && s.scene.weather, !sceneOff && s.scene.details,
         !sceneOff && propsClause,
         light, styleSlot,
@@ -827,7 +836,7 @@ const liveText = (s, seed = 0) => {
         focus: focusV, pose: firstOf(poses) || "",
         placement: walk(PLACEMENT_LIB, null, 1, seed)[0] || "",
         expression: exprSlot, lighting: light,
-        outfit: [wearing, extras].filter(Boolean).join(", "),
+        outfit: outfitSlot,
         quality: "editorial photography, natural light" };
     const tmpl = (s.session.template || "").trim() || DEFAULT_TEMPLATE;
     let filled = tmpl;
