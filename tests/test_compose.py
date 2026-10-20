@@ -144,6 +144,55 @@ def test_clock_hour_reads_the_assistant_phrases():
     assert "hour 7" not in p
 
 
+def test_shared_persona_blocks_accumulate():
+    """hair + hair_color share the hair block, eyes + makeup the face
+    block, signature + nails the signature block: every picked value
+    rides -- the old per-block overwrite silently dropped all but the
+    last field of a block"""
+    from PerfectLab.person_node import compose_blocks
+    blocks = compose_blocks({"fields": {"hair": "long platinum waves",
+                                        "hair_color": "honey blonde"}})
+    assert blocks["hair"] == "long platinum waves, honey blonde"
+    blocks = compose_blocks({"fields": {"eyes": "pale blue eyes",
+                                       "makeup": ["bold red lipstick"]}})
+    assert blocks["face"] == "pale blue eyes, bold red lipstick"
+    blocks = compose_blocks({"fields": {"signature": "a tiny beauty mark under one eye",
+                                        "nails": "French tip manicure"}})
+    assert blocks["signature"] == "a tiny beauty mark under one eye, French tip manicure"
+    # the free-text signature rides WITH the chips, it does not replace them
+    blocks = compose_blocks({"fields": {"signature": "a tiny beauty mark under one eye"},
+                             "signature_text": "a thin gold nose ring"})
+    assert blocks["signature"] == "a tiny beauty mark under one eye, a thin gold nose ring"
+    # the skin keeps its "with" lead while accumulating
+    blocks = compose_blocks({"fields": {"skin": "porcelain skin"}})
+    assert blocks["skin"] == "with porcelain skin"
+
+
+def test_trigger_stands_alone_without_identity():
+    from PerfectLab.person_node import compose_blocks
+    blocks = compose_blocks({"fields": {"hair": "beachy curls"}, "trigger": "JW"})
+    assert blocks["identity"] == "a person (JW)"
+    assert "hair" not in blocks
+
+
+def test_switched_off_section_drops_its_slots():
+    """a rail dot switches the whole section off: the engine drops the
+    slot, light included (it lives inside the scene section in the UI)"""
+    config = {"_v": 2, "shot": {}, "session": {"off": ["scene"]},
+              "off": ["scene"],
+              "scene": {"location": "a rooftop cafe"},
+              "light": {"hour": 7}}
+    p = perfectlab_studio._run_session(config, 1, 0, -1)[0][0]
+    assert "rooftop cafe" not in p
+    assert "morning light" not in p
+    # persona off: no person, no trigger, even with picks in the state
+    config2 = {"_v": 2, "shot": {}, "session": {}, "off": ["persona"],
+               "persona": {"trigger": "JW", "fields": {"gender": "a young woman"}}}
+    p2 = perfectlab_studio._run_session(config2, 1, 0, -1)[0][0]
+    assert "young woman" not in p2
+    assert "JW" not in p2
+
+
 def test_mirror_file_is_fresh():
     repo = os.path.join(CUSTOM_NODES, "PerfectLab")
     gen = os.path.join(repo, "web", "perfectlab_libraries.js")

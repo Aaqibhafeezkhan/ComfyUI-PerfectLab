@@ -11,26 +11,26 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.5";
+    from "./perfectlab_panel_factory.js?v=1.1.6";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, MACRO_SHOES, walk, clockLight,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.5";
+    from "./perfectlab_lib.js?v=1.1.6";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.5";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.6";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.5";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.6";
     document.head.append(link);
 }
 
@@ -663,15 +663,49 @@ const wcGet = (name) => {
 // ---- LIVE TEXT estimate -------------------------------------------------
 
 const liveText = (s, seed = 0) => {
-    const f = s.persona.fields || {};
-    // the engine's rule: a set trigger leads and drops the face
-    // blocks; no trigger, no prefix
-    const FACE_KEYS = ["hair", "hair_color", "eyes", "makeup", "skin"];
-    const perVals = s.persona.trigger
-        ? Object.entries(f).filter(([k]) => !FACE_KEYS.includes(k)).map(([, v]) => v)
-        : Object.values(f);
-    const per = perVals.flat().filter(Boolean).join(", ");
-    const look0 = (s.look.looks || [])[0] || {};
+    // a section switched off by its rail dot drops its slot in the engine
+    // (_section returns None) -- the preview must follow, light included
+    const secOff = (k2) => (s.off || []).includes(k2);
+    const personaOff = secOff("persona"), lookOff = secOff("look"),
+          sceneOff = secOff("scene"), styleOff = secOff("style"),
+          camOff = secOff("camera"), poseOff = secOff("pose"),
+          exprOff = secOff("expression");
+    const f = personaOff ? {} : (s.persona.fields || {});
+    // the engine's persona composer, mirrored from person_node.py
+    // compose_blocks: fields fold into blocks (identity, figure, hair,
+    // face, skin, signature -- two fields share most of them, and the
+    // block accumulates), the skin leads with "with", the blocks read in
+    // BLOCK_ORDER, a typed age under 18 floors to 18. A set trigger
+    // drops the face blocks and rides the identity -- or stands alone
+    // as "a person (trigger)" when nothing else names the subject
+    const PBLOCK = { gender: "identity", age: "identity", figure: "figure",
+                     hair: "hair", hair_color: "hair", eyes: "face", makeup: "face",
+                     skin: "skin", signature: "signature", nails: "signature" };
+    const pBlocks = {};
+    for (const [pk, praw] of Object.entries(f)) {
+        const pvals = (Array.isArray(praw) ? praw : (praw ? [praw] : [])).map(String)
+            .map(v => pk === "age"
+                ? v.replace(/\b(\d{1,3})(?=\s*(?:years?[- ]old|yo\b))/gi,
+                            (m2, d2) => String(Math.max(+d2, 18)))
+                : v).filter(Boolean);
+        if (!pvals.length) continue;
+        const ptext = pk === "skin" ? "with " + pvals.join(", ") : pvals.join(", ");
+        const pblk = PBLOCK[pk] || pk;
+        pBlocks[pblk] = ((pBlocks[pblk] ? pBlocks[pblk] + ", " : "") + ptext).replace(/^(?:,\s*)+/, "");
+    }
+    const sigText = personaOff ? "" : (s.persona.signature_text || "").trim();
+    if (sigText)
+        pBlocks.signature = ((pBlocks.signature ? pBlocks.signature + ", " : "") + sigText).replace(/^(?:,\s*)+/, "");
+    const ptrig = personaOff ? "" : (s.persona.trigger || "").trim();
+    if (ptrig) {
+        for (const fb of ["hair", "face", "skin"]) delete pBlocks[fb];
+        pBlocks.identity = pBlocks.identity
+            ? `${pBlocks.identity} (${ptrig})`
+            : `a person (${ptrig})`;
+    }
+    const per = ["identity", "figure", "hair", "face", "skin", "signature"]
+        .map(k2 => pBlocks[k2]).filter(Boolean).join(", ");
+    const look0 = lookOff ? {} : ((s.look.looks || [])[0] || {});
     const piece = (name, color, material) =>
         [material, name].filter(Boolean).join(" ") + (color ? ` in ${color}` : "");
     const wearing = [look0.top && piece(look0.top, look0.top_color, look0.top_material),
@@ -685,15 +719,15 @@ const liveText = (s, seed = 0) => {
                        ? look0.accessories.join(", ") + (look0.acc_color ? ` in ${look0.acc_color}` : "")
                        : "",
                      look0.details].filter(Boolean).join(", ");
-    const poses = (s.pose.poses.mode === "pin" ? [POSE_LIB[s.pose.poses.pin]] :
+    const poses = poseOff ? [] : (s.pose.poses.mode === "pin" ? [POSE_LIB[s.pose.poses.pin]] :
                     s.pose.poses.set || []).map(i => POSE_LIB[i]).filter(Boolean);
-    const framings = (s.camera.framings.mode === "pin"
+    const framings = camOff ? [] : (s.camera.framings.mode === "pin"
                        ? [FRAMING_LIB[s.camera.framings.pin]]
                        : (s.camera.framings.set || []).map(i => FRAMING_LIB[i])).filter(Boolean);
-    const focus = (s.camera.focus.mode === "pin" ? [FOCUS_LIB[s.camera.focus.pin]]
+    const focus = camOff ? [] : (s.camera.focus.mode === "pin" ? [FOCUS_LIB[s.camera.focus.pin]]
                    : (s.camera.focus.set || []).map(i => FOCUS_LIB[i])).filter(Boolean);
     const fmtSel = s.camera.formats;
-    const fmt = (fmtSel.set || (fmtSel.mode === "pin" ? [fmtSel.pin] : []))
+    const fmt = camOff ? [] : (fmtSel.set || (fmtSel.mode === "pin" ? [fmtSel.pin] : []))
         .map(i => FORMAT_LIB[i]).filter(f => f && f !== "follows framing");
     // the engine's slot writers, mirrored from look_nodes.py and
     // prompt_assistant.py: the scene leads with "the setting is", the
@@ -703,13 +737,15 @@ const liveText = (s, seed = 0) => {
         ? "with " + (s.scene.props.length > 1
             ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
             : s.scene.props[0]) : "";
-    const sceneSlot = [s.scene.location && "the setting is " + s.scene.location,
+    const sceneSlot = sceneOff ? "" : [s.scene.location && "the setting is " + s.scene.location,
         s.scene.weather, s.scene.details, propsClause].filter(Boolean).join(", ");
-    const styleSlot = [s.style.grade, s.style.style_film || s.style.film,
-        s.style.palette && "color palette: " + s.style.palette,
-        s.camera.lens, s.camera.composition].filter(Boolean).join(", ");
-    const light = s.light.setup || (s.light.hour >= 0 ? clockLight(s.light.hour) : "");
-    const expressions = (s.expression.expressions.mode === "pin"
+    const styleSlot = [
+        !styleOff && s.style.grade, !styleOff && (s.style.style_film || s.style.film),
+        !styleOff && s.style.palette && "color palette: " + s.style.palette,
+        !camOff && s.camera.lens, !camOff && s.camera.composition,
+    ].filter(Boolean).join(", ");
+    const light = sceneOff ? "" : (s.light.setup || (s.light.hour >= 0 ? clockLight(s.light.hour) : ""));
+    const expressions = exprOff ? [] : (s.expression.expressions.mode === "pin"
         ? [s.expression.expressions.pin] : (s.expression.expressions.set || []))
         .map(i => EXPRESSION_LIB[i]).filter(Boolean);
     // the engine composes nothing from a blank session (_run_session in
@@ -732,14 +768,12 @@ const liveText = (s, seed = 0) => {
             /(^|,\s*|\)\s+|\blayered with\s+|\bwith\s+)(a|an|the)\s+/gi, "$1");
         const tags = [
             s.shot.main_prompt,
-            per && stripArticles(s.persona.trigger ? `${per} (${s.persona.trigger})` : per),
+            per && stripArticles(per),
             (wearing || extras) && stripArticles(wearing
                 ? `${wearing}${extras ? ", " + extras : ""}`.replace("wearing ", "")
                 : extras),
-            s.scene.location, s.scene.weather, s.scene.details,
-        (s.scene.props || []).length && "with " + (s.scene.props.length > 1
-            ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
-            : s.scene.props[0]),
+            !sceneOff && s.scene.location, !sceneOff && s.scene.weather,
+            !sceneOff && s.scene.details, !sceneOff && propsClause,
             light, styleSlot,
             framings.join(", "),
             focus.join(", "),
@@ -754,20 +788,18 @@ const liveText = (s, seed = 0) => {
     }
     const parts = [
         s.shot.main_prompt,
-        per && (s.persona.trigger ? `${per} (${s.persona.trigger})` : per),
+        per,
         (wearing || extras) && (wearing
             ? `wearing ${wearing}${extras ? ", " + extras : ""}`
             : extras),
-        s.scene.location, s.scene.weather, s.scene.details,
-        (s.scene.props || []).length && "with " + (s.scene.props.length > 1
-            ? s.scene.props.slice(0, -1).join(", ") + " and " + s.scene.props[s.scene.props.length - 1]
-            : s.scene.props[0]),
-        light, [s.style.grade, s.style.style_film || s.style.film, s.style.palette].filter(Boolean).join(", "),
+        !sceneOff && s.scene.location, !sceneOff && s.scene.weather, !sceneOff && s.scene.details,
+        !sceneOff && propsClause,
+        light, styleSlot,
         framings.length && `framings: ${framings.join(", ")}`,
         focus.length && `focus: ${focus.join(", ")}`,
         fmt.length && `format: ${fmt.join(", ")}${s.camera.framing_order ? " (wide to close)" : ""}`,
-        s.camera.lens && `lens: ${s.camera.lens}`,
-        s.camera.composition && `composition: ${s.camera.composition}`,
+        !camOff && s.camera.lens && `lens: ${s.camera.lens}`,
+        !camOff && s.camera.composition && `composition: ${s.camera.composition}`,
         poses.length && `poses: ${poses.join(", ")}`,
         expressions.length && `expressions: ${expressions.join(", ")}`,
         s.shot.custom,
@@ -778,7 +810,9 @@ const liveText = (s, seed = 0) => {
     // the engine's text stays the source of truth for what renders
     const firstOf = (arr) => (arr && arr.length ? arr[0] : "");
     const tier = TIERS[framings[0]] || "medium";
-    let personSlot = per && (s.persona.trigger ? `${per} (${s.persona.trigger})` : per) || "";
+    // the trigger already rides inside per (compose_blocks appends it to
+    // the identity block) -- do not add it a second time
+    let personSlot = per || "";
     const exprPicked = firstOf(expressions) || "";
     let exprSlot = exprPicked;
     if (s.session.mood_subject && exprSlot && personSlot && framings[0] !== MACRO_SHOES) {
@@ -2720,17 +2754,34 @@ app.registerExtension({
         };
         // the DOM panel leads the widget list, so LiteGraph's positional
         // value assignment feeds it the first saved value and shifts the
-        // real widgets -- re-assign from the raw array ourselves, skipping
-        // the panel and tolerating both forms (placeholder present or not)
+        // real widgets -- re-assign ourselves. The named map is exact;
+        // the positional forms vary: the panel widget never serializes,
+        // and neither does ComfyUI's own control_after_generate combo
+        // (widgets.ts sets serialize: false), so a plain save holds only
+        // [node_data, mode, seed, variations] -- mapping it onto the
+        // full name list used to drop variations and stuff the control
+        // combo with a number
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function (info) {
             const r = onConfigure ? onConfigure.apply(this, arguments) : undefined;
+            const names = ["node_data", "mode", "seed", "control_after_generate", "variations"];
+            const widgetOf = (n) => (this.widgets || []).find(x => x.name === n);
+            const named = info && info.widgets_values_named;
+            if (named && typeof named === "object") {
+                for (const n of names) {
+                    const w = widgetOf.call(this, n);
+                    if (w && named[n] !== undefined) w.value = named[n];
+                }
+                return r;
+            }
             const values = info && info.widgets_values;
             if (Array.isArray(values)) {
-                const names = ["node_data", "mode", "seed", "control_after_generate", "variations"];
-                const v = (values.length === names.length + 1) ? values.slice(1) : values;
-                names.forEach((n, i) => {
-                    const w = (this.widgets || []).find(x => x.name === n);
+                let seq = names, v = values;
+                if (values.length === names.length + 1) v = values.slice(1);       // legacy: panel placeholder
+                else if (values.length === names.length - 1)                        // the control never serializes
+                    seq = names.filter(n => n !== "control_after_generate");
+                seq.forEach((n, i) => {
+                    const w = widgetOf.call(this, n);
                     if (w && v[i] !== undefined) w.value = v[i];
                 });
             }

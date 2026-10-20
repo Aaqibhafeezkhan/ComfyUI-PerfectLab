@@ -124,13 +124,18 @@ def compose_blocks(state):
         text = ", ".join(vals)
         if f["key"] == "skin":
             text = "with " + text
-        if block == "identity":
-            prev = blocks.get(block, "")
-            blocks[block] = (prev + ", " + text).strip(", ")
-        else:
-            blocks[block] = text
+        # every block accumulates: two fields share most blocks (hair +
+        # hair_color, eyes + makeup, signature + nails), and the old
+        # identity-only accumulation silently dropped every field but the
+        # last of a block -- a picked hairstyle vanished the moment a
+        # hair color was picked next to it
+        prev = blocks.get(block, "")
+        blocks[block] = (prev + ", " + text).strip(", ")
     if signature_text:
-        blocks["signature"] = signature_text
+        # the free-text signature rides WITH the signature chips, it does
+        # not replace them
+        prev = blocks.get("signature", "")
+        blocks["signature"] = (prev + ", " + signature_text).strip(", ")
     if trigger:
         for k in list(blocks):
             if k in FACE_BLOCKS:

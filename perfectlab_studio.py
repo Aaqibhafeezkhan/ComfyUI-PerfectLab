@@ -79,9 +79,13 @@ def compose_slots(config, count, seed):
         if texts:
             slots["wardrobe"] = "\n".join(texts)
 
+    # the light sub rides inside the SCENE section in the studio panel:
+    # a scene switched off by its rail dot takes its light with it
+    off = config.get("off")
+    scene_off = isinstance(off, list) and "scene" in off
     for key, builder in (("scene", PerfectLabScene), ("light", PerfectLabLight),
                          ("style", PerfectLabStyle)):
-        state = _section(config, key)
+        state = None if (key == "light" and scene_off) else _section(config, key)
         if state is not None:
             text = builder().build(json.dumps(state, ensure_ascii=False))[0]
             # props ride the scene line: "the setting is X, with a bouquet"
