@@ -239,6 +239,12 @@ def _run_session(config, count, seed, shot_pick):
             heights.append(h)
             seeds.append(int(seed) if session.get("fixed_seed") else (int(seed) + i) % (1 << 64))
             metas.append({"node": "studio", "mode": "sdxl tags", "shot": i + 1})
+        # the same resolution the natural mode runs: __wildcards__ pull
+        # their line and {a|b} choices pick their alternative, from the
+        # shot's own seed -- a typed __name__ works in tag mode too, the
+        # way the panel's own hint promises and the way its preview reads
+        prompts = [resolve_choices(resolve_wildcards(p, s), s)
+                   for p, s in zip(prompts, seeds)]
         return prompts, widths, heights, seeds, metas
     prompts, widths, heights, seeds, metas = PerfectLabSeries().process(
         count, int(seed), template, quality,

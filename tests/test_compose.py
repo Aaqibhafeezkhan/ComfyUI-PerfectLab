@@ -429,6 +429,51 @@ def test_arc_coupling_parity_js():
     assert not drift, f"coupling drift: {drift[:5]}"
 
 
+def test_person_blocks_reweight_per_framing():
+    """the engine re-weights the persona blocks for the shot's framing
+    (_person_for_shot): a close crop drops the figure, a medium drops
+    the skin, a wide keeps only identity and figure, a back pose keeps
+    the silhouette story, and a feet macro isolates to identity+skin"""
+    import json
+    from PerfectLab.shoot_nodes import POSES
+    back_idx = POSES.index("back to the camera")
+    base = {
+        "_v": 2, "shot": {}, "session": {"count": 1},
+        "persona": {"trigger": "", "fields": {
+            "gender": "a young woman", "figure": ["a curvy hourglass figure"],
+            "skin": "porcelain skin", "eyes": "pale blue eyes",
+            "signature": ["a tiny beauty mark under one eye"]}},
+        "pose": {"poses": {"mode": "all", "set": [], "pin": None}},
+        "camera": {"framings": {"mode": "pin", "set": [], "pin": 4},
+                   "focus": {"mode": "pin", "set": [], "pin": 0},
+                   "formats": {"mode": "pin", "set": [], "pin": 0}},
+    }
+    # pin 4 = medium shot with a face focus: the skin drops, the figure stays
+    p = perfectlab_studio._run_session(dict(base), 1, 0, -1)[0][0]
+    assert "porcelain skin" not in p and "hourglass figure" in p, p
+    # pin 1 = close-up: the figure drops, the face blocks stay
+    b = json.loads(json.dumps(base)); b["camera"]["framings"]["pin"] = 1
+    p = perfectlab_studio._run_session(b, 1, 0, -1)[0][0]
+    assert "hourglass figure" not in p and "porcelain skin" in p, p
+    # pin 11 = wide shot: only identity and figure survive
+    b = json.loads(json.dumps(base)); b["camera"]["framings"]["pin"] = 11
+    p = perfectlab_studio._run_session(b, 1, 0, -1)[0][0]
+    assert "porcelain skin" not in p and "pale blue eyes" not in p, p
+    assert "hourglass figure" in p, p
+    # a back pose keeps the silhouette story: face blocks drop
+    b = json.loads(json.dumps(base)); b["camera"]["framings"]["pin"] = 4
+    b["pose"]["poses"] = {"mode": "pin", "set": [], "pin": back_idx}
+    p = perfectlab_studio._run_session(b, 1, 0, -1)[0][0]
+    assert "porcelain skin" not in p and "pale blue eyes" not in p, p
+    assert "hourglass figure" in p, p
+    # a feet macro on a close crop isolates to identity and skin
+    b = json.loads(json.dumps(base)); b["camera"]["framings"]["pin"] = 1
+    b["camera"]["focus"] = {"mode": "pin", "set": [], "pin": 8}
+    p = perfectlab_studio._run_session(b, 1, 0, -1)[0][0]
+    assert "porcelain skin" in p and "hourglass figure" not in p, p
+    assert "pale blue eyes" not in p and "beauty mark" not in p, p
+
+
 def test_tags_mode_part_order():
     """SDXL tags read person, look, scene, light, style, then POSES and
     EXPRESSIONS, then the framing and the focus -- the engine's order,

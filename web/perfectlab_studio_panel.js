@@ -11,7 +11,7 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.10";
+    from "./perfectlab_panel_factory.js?v=1.1.11";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
@@ -20,19 +20,19 @@ import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          NEAR_PLACEMENTS, arcLevels, poseForLevel, framingForLevel, focusForLevel,
          placementForLevel, toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.10";
+    from "./perfectlab_lib.js?v=1.1.11";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.10";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.11";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.10";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.11";
     document.head.append(link);
 }
 
@@ -876,8 +876,24 @@ const liveText = (s, seed = 0) => {
     let framingTextV = framingV ? framingText(framingV) : "";
     if (tier === "close" && focusV === "the shoes") framingTextV = MACRO_SHOES;
     // the trigger already rides inside per (compose_blocks appends it to
-    // the identity block) -- do not add it a second time
-    let personSlot = per || "";
+    // the identity block) -- do not add it a second time. The engine
+    // re-weights the persona blocks for the framing (_person_for_shot,
+    // the single-persona path): a macro isolates, a back view keeps the
+    // silhouette story, a close crop keeps the face blocks and drops
+    // the figure, a medium keeps the figure and drops the skin, a wide
+    // keeps only the identity and the figure
+    let personSlot = "";
+    if (per) {
+        let pKeys;
+        if (focusV === "the shoes") pKeys = ["identity", "skin"];
+        else if (["the hands", "the jewelry", "the fabric texture"].includes(focusV))
+            pKeys = ["identity", "skin", "signature"];
+        else if (poseV.includes("back to the camera")) pKeys = ["identity", "figure", "hair"];
+        else if (tier === "close") pKeys = ["identity", "hair", "face", "skin", "signature"];
+        else if (tier === "medium") pKeys = ["identity", "figure", "hair", "face", "signature"];
+        else pKeys = ["identity", "figure"];
+        personSlot = pKeys.map(k2 => pBlocks[k2]).filter(Boolean).join(", ");
+    }
     const exprPicked = firstOf(expressions) || "";
     let exprSlot = exprPicked;
     // a back view cannot also sell a facial expression -- the engine
