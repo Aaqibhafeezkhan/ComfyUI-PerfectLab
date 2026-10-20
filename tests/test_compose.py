@@ -429,6 +429,20 @@ def test_arc_coupling_parity_js():
     assert not drift, f"coupling drift: {drift[:5]}"
 
 
+def test_wildcard_dir_priority_live_root_first():
+    """the panel writes wildcards through the server's userdata route,
+    which lands directly under user/default/perfectlab_wildcards; an
+    empty legacy userdata-nested folder must never shadow it -- the
+    FILE decides, not the folder"""
+    from PerfectLab.perfectlab_studio import _user_wildcards_dirs
+    dirs = [d.replace("\\", "/") for d in _user_wildcards_dirs()]
+    assert dirs, "no candidate wildcard dirs at all"
+    # the FIRST candidate is the live root the panel writes to; its
+    # legacy userdata-nested sibling comes right after, never before
+    assert dirs[0].endswith("user/default/perfectlab_wildcards"), dirs
+    assert "userdata" in dirs[1], dirs
+
+
 def test_negative_resolves_choices_and_wildcards():
     """the negative runs the same resolution as the positive prompt:
     __wildcards__ pull their line and {a|b} choices pick -- a typed

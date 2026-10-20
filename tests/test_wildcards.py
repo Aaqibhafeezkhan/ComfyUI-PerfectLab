@@ -51,9 +51,10 @@ def test_wildcard_then_choices_order():
 def test_user_override_wins_over_bundled():
     """the panel's manager writes to the profile folder; that copy wins"""
     pkg = os.path.join(ps._WC_PKG_DIR, "overridetest.txt")
-    ud = ps._user_wildcards_dir()
-    if not ud:
+    dirs = ps._user_wildcards_dirs()
+    if not dirs:
         return
+    ud = dirs[0]   # the live root the panel's manager writes to
     own = os.path.join(ud, "overridetest.txt")
     os.makedirs(ud, exist_ok=True)
     try:

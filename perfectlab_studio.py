@@ -286,41 +286,38 @@ _WC_RE = re.compile(r"__([A-Za-z0-9_-]+)__")
 _WC_PKG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "wildcards")
 
 
-def _user_wildcards_dir():
-    """the user's own wildcard folder -- the panel's wildcard manager writes
-    here, so personal files survive node updates. Older builds nest it under
-    userdata/."""
+def _user_wildcards_dirs():
+    """the user's wildcard folders, live root first. The panel writes
+    through the server's userdata route, which lands directly under
+    user/default/perfectlab_wildcards; older builds nested the folder
+    under userdata/. An empty legacy folder must never shadow a file
+    the panel just wrote -- the FILE decides, not the folder"""
     cands = []
     try:
         import folder_paths
         root = folder_paths.get_user_directory()
-        cands += [os.path.join(root, "default", "userdata", "perfectlab_wildcards"),
-                  os.path.join(root, "default", "perfectlab_wildcards")]
+        cands += [os.path.join(root, "default", "perfectlab_wildcards"),
+                  os.path.join(root, "default", "userdata", "perfectlab_wildcards")]
     except Exception:
         pass
     here = os.path.dirname(os.path.realpath(__file__))
     for _ in range(5):
         here = os.path.dirname(here)
-        for cand in ("user/default/userdata", "user/default"):
+        for cand in ("user/default", "user/default/userdata"):
             cands.append(os.path.join(here, cand, "perfectlab_wildcards"))
-    for d in cands:
-        if os.path.isdir(d):
-            return d
-    return cands[0] if cands else None
+    return cands
 _WC_CACHE = {}  # name -> (mtime, lines)
 
 
 def _wc_lines(name):
     """a wildcard's lines: the user's own file (the panel's manager) wins,
     the bundled starters ride with the package. Comments skip, re-read on
-    change."""
+    change. The FIRST candidate whose file exists wins -- an empty legacy
+    folder must not shadow the live one."""
     safe = re.sub(r"[^A-Za-z0-9_\-]", "", name)
     if not safe:
         return None
-    paths = []
-    ud = _user_wildcards_dir()
-    if ud:
-        paths.append(os.path.join(ud, safe + ".txt"))
+    paths = [os.path.join(d, safe + ".txt") for d in _user_wildcards_dirs()]
     paths.append(os.path.join(_WC_PKG_DIR, safe + ".txt"))
     for path in paths:
         try:
