@@ -1,6 +1,6 @@
 // Shared panel kit: favourites, multi-select, presets, uniform tiles and
 // height fitting -- one implementation used by every PerfectLab sub-node.
-import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.11";
+import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.12";
 
 // mirrors the panel: the caption translates, the value stays English
 const RU_KIT = {
@@ -230,7 +230,7 @@ export const libSync = (scope, host, rerender) => {
 
 // the shipped version: the tile cache busters and the panel's update
 // indicator both read this one constant
-export const PL_VERSION = "1.1.11";
+export const PL_VERSION = "1.1.12";
 const GUIDE_V = PL_VERSION;
 // the panel package folder name depends on how the node was installed
 // (git clone: PerfectLab, Manager/registry: comfyui-perfectlab), so the

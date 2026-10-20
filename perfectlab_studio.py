@@ -389,7 +389,10 @@ def _negatives(config, n, seed=0):
     text = ", ".join(presets + ([custom] if custom else []))
     if not neg.get("enabled") or not text:
         return [""] * max(1, n)
-    text = resolve_wildcards(text, seed)
+    # the same resolution the positive prompt runs: __wildcards__ pull
+    # their line and {a|b} choices pick their alternative -- a typed
+    # choice used to ride to the model with its literal braces
+    text = resolve_choices(resolve_wildcards(text, seed), seed)
     return [PerfectLabAssistant().clean_for_natural_language(text)] * max(1, n)
 
 

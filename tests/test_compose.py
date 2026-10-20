@@ -429,6 +429,57 @@ def test_arc_coupling_parity_js():
     assert not drift, f"coupling drift: {drift[:5]}"
 
 
+def test_negative_resolves_choices_and_wildcards():
+    """the negative runs the same resolution as the positive prompt:
+    __wildcards__ pull their line and {a|b} choices pick -- a typed
+    choice used to ride to the model with its literal braces"""
+    from PerfectLab.perfectlab_studio import _negatives
+    neg = _negatives({"negative": {"enabled": True,
+                                    "text": "blurry, {low|high} noise, __mood__",
+                                    "presets": []}}, 1, 0)
+    assert "{" not in neg[0] and "}" not in neg[0], neg[0]
+    assert "blurry" in neg[0]
+    # disabled or empty stays empty
+    assert _negatives({"negative": {"enabled": False, "text": "x"}}, 1, 0) == [""]
+    assert _negatives({"negative": {"enabled": True, "text": ""}}, 1, 0) == [""]
+
+
+def test_reshoot_renders_one_prompt():
+    """the dock's re-shoot order rides in the node data as a 1-based
+    frame number; the engine answers with exactly that shot, under a
+    bumped seed, through the node's real entry point"""
+    import json as _json
+    state = {
+        "_v": 2, "shot": {}, "session": {"count": 3, "reshoot_shot": 2},
+        "scene": {"location": "a rooftop cafe"},
+    }
+    node = perfectlab_studio.PerfectLabStudio()
+    prompts, negatives, widths, heights, seeds, metas = node.process(
+        _json.dumps(state), "session", 100, 1)
+    assert len(prompts) == 1, f"a re-shoot renders one frame, got {len(prompts)}"
+    assert metas[0].get("reshoot") is True
+    assert seeds[0] > 100, "the re-shoot rolls a fresh seed"
+    # the same data without the order renders the whole session
+    state["session"]["reshoot_shot"] = 0
+    prompts, *_ = node.process(_json.dumps(state), "session", 100, 1)
+    assert len(prompts) == 3
+
+
+def test_template_duplicate_slots_fill():
+    """a custom template may name a slot twice -- both sides replace
+    every occurrence, no half-filled copies"""
+    state = {
+        "_v": 2, "shot": {},
+        "session": {"count": 1, "template": "{person} shoots. {scene}. again: {person}"},
+        "persona": {"trigger": "", "fields": {"gender": "a young woman"}},
+        "scene": {"location": "a rooftop cafe"},
+    }
+    p = perfectlab_studio._run_session(state, 1, 0, -1)[0][0]
+    assert p.count("a young woman") == 2, p
+    assert p.count("rooftop cafe") == 1, p
+    assert "{" not in p and "}" not in p, p
+
+
 def test_person_blocks_reweight_per_framing():
     """the engine re-weights the persona blocks for the shot's framing
     (_person_for_shot): a close crop drops the figure, a medium drops
