@@ -11,7 +11,7 @@ A single-node photoshoot prompt builder for ComfyUI: 625 photo-previewed picks, 
 
 ## Registry summary (short, under 200 chars)
 
-One node, one panel: pick person, outfit, scene, light and camera from photo libraries, press one button, get a whole AI photoshoot in your graph.
+One node, one panel: pick person, outfit, scene and camera from photo libraries, press one button, get a whole AI photoshoot. The LIVE TEXT preview is the render, byte for byte.
 
 ## Registry description (long)
 
@@ -24,7 +24,8 @@ What a session gives you:
 - **Dramaturgy arcs.** Seven built-in emotional curves drive takes, poses, placement, crops and focus: quiet points render once, climaxes pull closer and stronger. Your own curves load from a JSON file.
 - **Model-aware prompts.** Natural language for Z-Image, Flux and Qwen-Image, comma tags for SDXL. The prompt style switch, a token estimate and a linter (token overflow, duplicates, unbalanced braces, missing wildcards) keep prompts inside each encoder's budget.
 - **Your own library.** Type custom wardrobe, props and places, attach photo tiles from disk or shoot previews through your own graph. Custom entries, presets, wildcards and arcs live in the ComfyUI user folder and survive updates.
-- **Text tools.** Inline choices `{a|b|c}` resolved per shot, wildcard files with a built-in manager, a 300-character guard on own lines.
+- **Text tools.** Inline choices `{a|b|c}` resolved per shot, wildcard files with a built-in manager, a 300-character guard on own lines. The choices and wildcards resolve in the natural prompt, the SDXL tag list and the negative alike.
+- **A preview you can trust.** The LIVE TEXT column matches the engine output byte for byte: the same walk order, the same arc bends, the same token trim, the same per-seed wildcard picks.
 - **RU/EN interface.** Captions and chrome translate on a button; prompts stay English.
 
 No Python dependencies. MIT license. Works with any text-to-image model through your own graph: SDXL, Flux, Z-Image, Qwen-Image and others.
@@ -42,7 +43,8 @@ PerfectLab Studio: конструктор фотосессий для ComfyUI в
 - Драматургические арки: 7 встроенных эмоциональных кривых управляют тейками, позами, кадрированием и фокусом; свои арки из JSON.
 - Промты под модель: естественный язык для Z-Image, Flux, Qwen-Image; теги для SDXL. Линтер следит за лимитами токенов, дублями и скобками.
 - Свои вещи и места: вписываете в карточку, вешаете фото или снимаете плитку своим графом.
-- Вайлкарды с редактором прямо в панели, выборы {a|b|c}, пресеты, горячие клавиши.
+- Вайлкарды с редактором прямо в панели, выборы {a|b|c}, пресеты, горячие клавиши; выборы и вайлкарды резолвятся и в натуральном промте, и в SDXL-тегах, и в негативе.
+- Живой предпросмотр совпадает с выводом движка байт в байт: тот же порядок прогулки, те же изгибы дуги, тот же трим токенов.
 - Интерфейс на русском и английском; промты всегда на английском.
 
 Без Python-зависимостей, лицензия MIT. Подходит к любой text-to-image модели: SDXL, Flux, Z-Image, Qwen-Image и другие.

@@ -15,6 +15,7 @@ PerfectLab Studio builds AI photoshoots inside one ComfyUI node. Pick the person
 - **You pick what you see.** Every library entry carries a photo tile: 553 previews rendered through a real graph, the same face and the same light across the whole set.
 - **The person stays the same.** The persona block and per-shot seeds keep the description stable, and a fixed-seed option pins one noise to the whole session for clean A/B. For the same *face* across shoots, use a character LoRA: type its trigger word into the trigger line and every prompt starts with it. Prompts alone give you the same description; a LoRA gives you the same person.
 - **Prompts that fit the model.** Natural language for Flux, Z-Image and Qwen-Image, comma tags for SDXL. The built-in linter watches the token budget, duplicates, unbalanced braces and missing wildcard files.
+- **The preview is the render.** LIVE TEXT in the right column is byte-identical to the prompt the engine queues: the same walk order, the same arc bends and couplings, the same token trim, the same wildcard and choice picks per seed. What you read before shooting is what the GPU gets.
 - **A session with a story.** Dramaturgy arcs bend the shoot along an emotional curve: quiet points render once, climaxes pull closer crops, stronger poses and full take stacks.
 - **Your own everything.** Custom wardrobe, props and places typed right into the cards. Your own wildcard lists, presets and arcs as files. Tiles for your own pieces shot through your own graph.
 - **No Python dependencies.** Unzip, restart, shoot. MIT licensed.
@@ -84,7 +85,7 @@ Ten fields, each combining into the persona text. Multi-pick fields stack, singl
 
 ## 👗 Look
 
-41 tops (street, swim, sport, sleep, evening), 32 bottoms, 28 footwear, 13 headwear, 36 accessories and its own Lingerie slot with 10 sets. Each garment takes a color from photo swatches and a material from 22 fabric textures. Both go into the prompt: *wearing silk cropped tank top in champagne gold*. The top card also carries **ready-made looks**: one tile styles hair, makeup and the first look's outfit together (clean girl, y2k crop, night out and friends).
+41 tops (street, swim, sport, sleep, evening), 32 bottoms, 28 footwear, 13 headwear, 36 accessories and its own Lingerie slot with 10 sets. Each garment takes a color from photo swatches and a material from 22 fabric textures. Both go into the prompt: *wearing silk cropped tank top in champagne gold*. The top card also carries **ready-made looks**: one tile styles hair, makeup and the first look's outfit together (clean girl, y2k crop, street layer, office sharp, cozy evening, night out, sporty set, goth edge).
 
 ### 👕 Tops
 
@@ -179,7 +180,11 @@ The SESSION section sets what one START SHOOT renders: **shots** (1 to 100), **t
 
 The SESSION section also carries the **model profile**: a named token budget (Z-Image 400, Flux 512, Krea 2 512, Qwen-Image 1024, SDXL 75, or your own number). The linter and the engine's guard read the same string, so what the panel warns about is exactly what the engine trims. Under it, the **prompt template** editor: the sentence the engine fills, slot by slot. A custom slot order for exotic encoders is one edit, the reset button brings the stock order back, and the linter flags unknown slots.
 
+The **⚙ button** in the panel header opens the **seed settings**: the seed value, a 🎲 roll for a fresh one, and how the seed advances between shoots (fixed, +1, or random). This is the same seed ComfyUI's own control would carry; the panel just keeps it one click away, and LIVE TEXT re-rolls its wildcards with it.
+
 The rendered frames land in the preview dock under the panel. In session mode every dock tile is clickable: **re-shoot this frame** queues a single fresh take of that exact shot, same framing, pose and expression, a new roll of the dice on the seed. Each tile also carries a ★: star the keepers, press ↺ and the panel re-shoots every frame you did not star, each fresh take landing back in its own slot.
+
+**RESET ALL** empties every pick, and a session with nothing picked composes an empty prompt: a blank slate reads blank, no stock words ride in uninvited. The first real pick switches the full machinery back on.
 
 ## 🎭 Dramaturgy arcs
 
@@ -221,6 +226,8 @@ Any own-line and the custom field understand:
 
 - **`{a|b|c}`**: an inline choice. Every shot picks one alternative from its own seed; nested braces resolve inside-out.
 - **`__filename__`**: a wildcard file. Pulls a line from the file (one phrase per line, `#` comments skip, re-reads when the file changes). Two starters ship: `__mood__`, `__time_of_day__`.
+
+Both resolve everywhere the text goes: the natural-language prompt, the SDXL tag list and the negative prompt all run the same resolution.
 
 **⁂ WILDCARDS** in the rail bottom opens the wildcard manager built into the panel: create your own `__name__` lists, edit the whole file in one textarea, delete what you no longer need. Your files live in the profile folder and survive node updates; editing a bundled starter makes your own copy that overrides it.
 
@@ -285,7 +292,7 @@ Yes. The node outputs PROMPT, NEGATIVE, WIDTH, HEIGHT, SEED and META lists. Wire
 If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. The **character cards** row in PERSONA saves the fields plus the trigger under a name and loads them back in one click. Saved prompt texts can be pasted into any own-line field, and the presets row now exports and imports presets as files, so setups move between installs.
 
 **Can I make the preview tiles bigger?**
-The **▦ button** in the header cycles the tile size (M / L / XL / S), remembered per browser. The node itself auto-fits its height to the content, so there is no separate resize to fight with: more picks, taller node.
+Three levers, all in the header. The **▦ button** cycles the tile size (M / L / XL / S), remembered per browser. The **% button** cycles the interface scale (100 / 115 / 130%), growing the text and every em-sized control with it. And the node itself stretches: drag its bottom-right corner and the whole panel follows, fitting more of the library on screen; it never collapses below its comfortable minimum.
 
 **Will prompts alone give me a fully consistent character?**
 No, and it is worth saying plainly: text locks the description, not the face. The persona fields keep the same wording in every shot, the fixed-seed option keeps the same noise, and a character LoRA is what locks the face itself. The trigger line exists for exactly that.

@@ -315,8 +315,16 @@ name.
 
 The **▦ tile-size button** in the header cycles the preview tile size
 (M / L / XL / S): fewer tiles per row at the larger steps, the choice is
-remembered per browser. The node auto-fits its height to the content, so
-the whole library wall stays visible without a scrollbar fight.
+remembered per browser. The **% button** next to it cycles the interface
+scale (100 / 115 / 130%): the text and every em-sized control grow with
+it. The node itself stretches too: drag its bottom-right corner and the
+whole panel follows, fitting more of the library on screen, with a
+comfortable minimum it never collapses below.
+
+The **⚙ seed settings button** in the header opens a small panel with
+the seed value, a 🎲 roll for a fresh one, and how the seed advances
+between shoots (fixed, +1, or random). It writes the same seed widget
+ComfyUI queues, and LIVE TEXT re-rolls its wildcards with it.
 
 The **linter badge** in the header lights up when the composed prompt has
 problems: token overflow against the model profile's budget, an own line
