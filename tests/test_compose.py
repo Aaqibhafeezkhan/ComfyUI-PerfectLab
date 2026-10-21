@@ -443,6 +443,97 @@ def test_wildcard_dir_priority_live_root_first():
     assert "userdata" in dirs[1], dirs
 
 
+def test_user_override_merge_parity_js():
+    """the energy / tone / arc override files merge the SAME way on both
+    sides: a re-tuned built-in moves in place, a new key joins the
+    pool, a custom arc rides arc_seq. Writes the real user files
+    temporarily and skips when the user already has their own"""
+    import json as _json
+    from PerfectLab.shoot_nodes import _user_override_path, arc_seq, arc_levels
+    from PerfectLab.series_nodes import (_pose_for_level, _placement_for_level,
+                                         _framing_for_level, _focus_for_level,
+                                         _tone_light, PLACEMENTS)
+    from PerfectLab.shoot_nodes import POSES, FRAMINGS, FOCUS
+    energy_path = _user_override_path("perfectlab_energy.json")
+    tone_path = _user_override_path("perfectlab_tone.json")
+    arcs_path = _user_override_path("perfectlab_arcs.json")
+    if not energy_path or not tone_path or not arcs_path:
+        pytest.skip("no writable user override target")
+    if any(os.path.exists(p) for p in (energy_path, tone_path, arcs_path)):
+        pytest.skip("the user keeps their own override files here")
+
+    energy = {"poses": {"lying on the grass": 0.95, "my own spin pose": 0.05},
+              "placements": {"deep in the scene": 0.9},
+              "framings": {"close-up": 0.95},
+              "focuses": {"the fabric texture": 0.95}}
+    tone = {"hard lighting": ["tender lighting", "brutal lighting"],
+            "candlelit mood": ["airy mood", "candlelit mood"]}
+    arcs = {"my own arc": {"kp": [0, 2, 4], "lv": [0.1, 0.5, 0.95]}}
+    cases = []
+    try:
+        for path, data in ((energy_path, energy), (tone_path, tone),
+                            (arcs_path, arcs)):
+            with open(path, "w", encoding="utf-8") as f:
+                _json.dump(data, f)
+        # a re-tuned built-in pose contradicts at a quiet point
+        cases.append(["pose", "lying on the grass", 0.05, 0, None, None])
+        # a custom pose with its own energy rides the feed too
+        cases.append(["pose", "my own spin pose", 0.95, 3, None, None])
+        cases.append(["place", "deep in the scene", 0.05, 0, False, None])
+        cases.append(["crop", "close-up", 0.05, 0, None, None])
+        cases.append(["focus", "the fabric texture", 0.05, 0, "medium",
+                      POSES[0]])
+        py = []
+        for fn, item, lvl, i, tier, pose in cases:
+            if fn == "pose":
+                feed = POSES + (["my own spin pose"]
+                                if item == "my own spin pose" else [])
+                py.append(_pose_for_level(feed, item, lvl, i)[0])
+            elif fn == "place":
+                py.append(_placement_for_level(item, lvl, i, bool(tier))[0])
+            elif fn == "crop":
+                py.append(_framing_for_level(FRAMINGS, item, lvl, i)[0])
+            else:
+                py.append(_focus_for_level(FOCUS, item, lvl, i, tier, pose)[0])
+        py_tone = _tone_light("hard lighting with candlelit mood", 0)[0]
+        py_arc = [list(arc_seq("my own arc", 5)),
+                  [round(x, 6) for x in arc_levels("my own arc", 5)]]
+
+        repo = os.path.join(CUSTOM_NODES, "PerfectLab")
+        libs = "file:///" + os.path.join(repo, "web", "perfectlab_libraries.js").replace("\\", "/")
+        lib = "file:///" + os.path.join(repo, "web", "perfectlab_lib.js").replace("\\", "/")
+        code = ("import { setUserEnergy, setUserToneSwaps, setUserArcs, poseForLevel, placementForLevel, framingForLevel, focusForLevel, toneLight, arcSeq, arcLevels } from '" + lib + "';\n"
+                + "import { POSE_LIB, FRAMING_LIB, FOCUS_LIB } from '" + libs + "';\n"
+                + "setUserEnergy(" + _json.dumps(energy) + ");\n"
+                + "setUserToneSwaps(" + _json.dumps(tone) + ");\n"
+                + "setUserArcs(" + _json.dumps(arcs) + ");\n"
+                + "const cases = " + _json.dumps(cases) + ";\n"
+                + "const POSE_FEED = item => item === 'my own spin pose' ? [...POSE_LIB, item] : POSE_LIB;\n"
+                + "console.log(JSON.stringify({\n"
+                + "  swaps: cases.map(([fn, item, lvl, i, tier, pose]) =>\n"
+                + "    fn === 'pose' ? poseForLevel(POSE_FEED(item), item, lvl, i)\n"
+                + "    : fn === 'place' ? placementForLevel(item, lvl, i, !!tier)\n"
+                + "    : fn === 'crop' ? framingForLevel(FRAMING_LIB, item, lvl, i)\n"
+                + "    : focusForLevel(FOCUS_LIB, item, lvl, i, tier, pose)),\n"
+                + "  tone: toneLight('hard lighting with candlelit mood', 0),\n"
+                + "  arc: [arcSeq('my own arc', 5), arcLevels('my own arc', 5)]\n"
+                + "}));")
+        r = subprocess.run(["node", "--input-type=module", "-e", code],
+                           capture_output=True, text=True)
+        assert r.returncode == 0, r.stderr
+        js = _json.loads(r.stdout)
+        drift = [(c, j, p) for c, j, p in zip(cases, js["swaps"], py) if j != p]
+        assert not drift, f"override swap drift: {drift}"
+        assert js["tone"]["line"] == py_tone, \
+            f"tone drift: {js['tone']} vs {py_tone!r}"
+        assert list(js["arc"][0]) == py_arc[0], f"arc drift: {js['arc'][0]} vs {py_arc[0]}"
+        assert [round(x, 6) for x in js["arc"][1]] == py_arc[1], "arc level drift"
+    finally:
+        for p in (energy_path, tone_path, arcs_path):
+            if os.path.exists(p):
+                os.remove(p)
+
+
 def test_negative_resolves_choices_and_wildcards():
     """the negative runs the same resolution as the positive prompt:
     __wildcards__ pull their line and {a|b} choices pick -- a typed
