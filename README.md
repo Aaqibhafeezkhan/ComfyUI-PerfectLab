@@ -194,6 +194,8 @@ The rendered frames land in the preview dock under the panel. In session mode ev
 
 A photoshoot reads better as a story than as a list. An arc gives the session an emotional curve: every shot gets an energy level from 0 (quiet point) to 1 (climax), and the engine bends the shoot along it.
 
+<p align="center"><img src="docs/sections/session_pick.png" alt="An arc picked with all five couplings on and its expression route" width="760"></p>
+
 **What an arc is.** A named curve plus its expression route. `quiet to climax` walks serene → curious → soft smile → half-smile → excited → laughing out loud; `slow burn` smolders from pensive to a bitten lip; `cold front` hardens from serene to a fierce glare; `story wave` rises, falls and rises again. Pick one in the SESSION section: the chip row shows every arc with its route as a tooltip, and the plan prints the route shot by shot, so you see which face each frame wears before you press the button.
 
 **What the curve drives.** With an arc picked, five couplings come alive in the SESSION section, each optional:
@@ -241,6 +243,8 @@ The ⚠ badge in the header counts problems in the composed prompt: token overfl
 
 It also counts **conflicts**: the swaps the engine would make silently, said out loud before the GPU pays for them. A face focus (the face, the eyes, the lips) does not survive figure-tier crops, the engine swaps it to the full figure there. A back-to-camera pose reads the silhouette, so a face focus turns into one. A walked format feed drops every ratio the picked crops contradict, while a pinned format is a deliberate ask and passes as-is. Each warning names the values and the swap: change the pick, or pin it on purpose.
 
+<p align="center"><img src="docs/sections/inspire_pick.png" alt="After one inspiration roll: every creative section re-rolled" width="760"></p>
+
 The **🎲 inspiration roll** in the header re-rolls every creative section at once: garments, colors, materials, accessories, location, weather, light, props, grade, film, palette, framings, focus, lens, poses and expressions. The persona, the trigger, your own words, the negative, the session settings and the output formats stay untouched. The whole roll is one undo step: Ctrl+Z takes it back.
 
 ## 🤖 Models and token budgets
@@ -255,6 +259,10 @@ The panel composes for the encoder in front of it. The **model profile** in the 
 | Qwen-Image | natural language | 1024 tokens |
 | SDXL base and refines | comma tags | 75-token chunks |
 | Custom | keeps the current style | your own number |
+
+When the estimate runs over the budget the linter badge turns amber, LIVE TEXT says so, and the engine's guard drops the low-priority slots on the render itself:
+
+<p align="center"><img src="docs/sections/budget_pick.png" alt="Over budget: the amber linter badge, the warning list, the estimate over the limit" width="760"></p>
 
 Own lines (the main prompt, the scene line, custom additions) are capped at 300 characters each: past that the encoder stops reading the line as one intent. Token order follows the encoder behavior: the style clause goes first, the mood second, the camera line before the person.
 
