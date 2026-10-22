@@ -180,9 +180,13 @@ The SESSION section sets what one START SHOOT renders: **shots** (1 to 100), **t
 
 The SESSION section also carries the **model profile**: a named token budget (Z-Image 400, Flux 512, Krea 2 512, Qwen-Image 1024, SDXL 75, or your own number). The linter and the engine's guard read the same string, so what the panel warns about is exactly what the engine trims. Under it, the **prompt template** editor: the sentence the engine fills, slot by slot. A custom slot order for exotic encoders is one edit, the reset button brings the stock order back, and the linter flags unknown slots.
 
-The **⚙ button** in the panel header opens the **seed settings**: the seed value, a 🎲 roll for a fresh one, and how the seed advances between shoots (fixed, +1, or random). This is the same seed ComfyUI's own control would carry; the panel just keeps it one click away, and LIVE TEXT re-rolls its wildcards with it.
+The **⚙ button** in the panel header opens the **settings**: the seed (its value, a 🎲 roll, and how it advances between shoots: fixed, +1 or random), the **view** (the preview tile size S / M / L / XL and the interface scale 100 / 115 / 130%) and the **interface language**. The seed is the same seed ComfyUI's own control would carry; the panel keeps it one click away, and LIVE TEXT re-rolls its wildcards with it.
+
+<p align="center"><img src="docs/sections/settings.png" alt="The settings popup: seed, view, language" width="760"></p>
 
 The rendered frames land in the preview dock under the panel. In session mode every dock tile is clickable: **re-shoot this frame** queues a single fresh take of that exact shot, same framing, pose and expression, a new roll of the dice on the seed. Each tile also carries a ★: star the keepers, press ↺ and the panel re-shoots every frame you did not star, each fresh take landing back in its own slot.
+
+<p align="center"><img src="docs/sections/session_pick.png" alt="The SESSION section: profile, arc, couplings, template" width="760"></p>
 
 **RESET ALL** empties every pick, and a session with nothing picked composes an empty prompt: a blank slate reads blank, no stock words ride in uninvited. The first real pick switches the full machinery back on.
 
@@ -292,7 +296,7 @@ Yes. The node outputs PROMPT, NEGATIVE, WIDTH, HEIGHT, SEED and META lists. Wire
 If a character is a LoRA, type its trigger word into the trigger/prefix line and it rides every prompt. The **character cards** row in PERSONA saves the fields plus the trigger under a name and loads them back in one click. Saved prompt texts can be pasted into any own-line field, and the presets row now exports and imports presets as files, so setups move between installs.
 
 **Can I make the preview tiles bigger?**
-Three levers, all in the header. The **▦ button** cycles the tile size (M / L / XL / S), remembered per browser. The **% button** cycles the interface scale (100 / 115 / 130%), growing the text and every em-sized control with it. And the node itself stretches: drag its bottom-right corner and the whole panel follows, fitting more of the library on screen; it never collapses below its comfortable minimum.
+Two levers live in the **⚙ settings popup**: the preview tile size (S / M / L / XL) and the interface scale (100 / 115 / 130%, growing the text and every em-sized control). Both are remembered per browser. The node itself stretches too: drag its bottom-right corner and the whole panel follows, fitting more of the library on screen; it never collapses below its comfortable minimum.
 
 **Will prompts alone give me a fully consistent character?**
 No, and it is worth saying plainly: text locks the description, not the face. The persona fields keep the same wording in every shot, the fixed-seed option keeps the same noise, and a character LoRA is what locks the face itself. The trigger line exists for exactly that.
@@ -301,7 +305,7 @@ No, and it is worth saying plainly: text locks the description, not the face. Th
 No. All 700 preview tiles ship inside the package and load from your disk, so the panel works fully offline.
 
 **Is the interface translated?**
-The RU/EN button in the header switches the interface language; the choice is remembered per browser. Library captions are translated too, the prompts stay English on purpose: English is what the encoders read best.
+The language switch lives in the **⚙ settings popup** (EN / RU); the choice is remembered per browser. Library captions are translated too, the prompts stay English on purpose: English is what the encoders read best.
 
 ## ⌨️ Hotkeys
 

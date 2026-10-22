@@ -11,7 +11,7 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.12";
+    from "./perfectlab_panel_factory.js?v=1.1.14";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
@@ -20,19 +20,19 @@ import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          NEAR_PLACEMENTS, arcLevels, poseForLevel, framingForLevel, focusForLevel,
          placementForLevel, toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.12";
+    from "./perfectlab_lib.js?v=1.1.14";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.12";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.14";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.12";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.14";
     document.head.append(link);
 }
 
@@ -120,6 +120,9 @@ const RU = {
     "random after every shot": "случайный после каждого кадра",
     "random seed now": "случайный сид сейчас",
     "the seed rides the hidden widget into the queue; the mode is ComfyUI's own control_after_generate": "сид уезжает в очередь через скрытый виджет; режим -- это родной control_after_generate ComfyUI",
+    "settings: seed, view, language": "настройки: сид, вид, язык",
+    "view": "вид", "interface": "интерфейс", "language": "язык",
+    "interface scale": "масштаб интерфейса",
     "dramaturgy arc": "дуга драматургии", "the session's emotional curve": "эмоциональная кривая сессии",
     "flat walk": "ровный список", "the arc's couplings": "связки дуги",
     "what follows the curve": "что следует кривой",
@@ -616,7 +619,10 @@ const sessionEditor = (s) => `
             .replace("~n~", s.session.count).replace("~shot~", plural(s.session.count, "shot"))
             .replace("~t~", s.session.takes).replace("~take~", plural(s.session.takes, "take"))}${(s.look.looks || []).length > 1 ? ` ${tr("across ~n~ ~look~ in ~rot~ rotation").replace("~n~", (s.look.looks || []).length).replace("~look~", plural((s.look.looks || []).length, "look")).replace("~rot~", esc(tr(s.session.look_rotation)))}` : ""}${s.expression.arc ? ` ${tr("on the ~arc~ arc").replace("~arc~", esc(disp(s.expression.arc)))}` : ""}.
 
-    </div>`;
+    </div>
+    ${s.expression.arc && s.session.count > 1 ? `<div class="plx-sub">${tr("the arc's expression route")}</div>
+    <div class="plx-chips tight">${arcSeq(s.expression.arc, s.session.count).map((e, i) => `
+        <span class="plx-route"><b>${i + 1}</b> ${esc(disp(e))}</span>`).join("")}</div>` : ""}`;
 
 const NEGATIVE = (s) => `
     <div class="plx-row"><label class="plx-check"><input type="checkbox" data-negon ${s.negative.enabled ? "checked" : ""}> ${tr("negative")}</label></div>
@@ -1681,14 +1687,11 @@ function buildPanel(node) {
             ${ui.results && ui.results.length
                 ? `<button class="plx-btn ${ui.dockOpen ? "act" : ""}" data-results
                      title="${tr("LAST SHOOT")}">🖼 ${ui.results.length}</button>` : ""}
-            <button class="plx-reset" data-tiles title="${tr("preview tile size")}">${tileSize.toUpperCase()}</button>
-            <button class="plx-reset" data-uiscale title="${tr("interface scale: text and buttons")}">${Math.round(uiScale * 100)}%</button>
-            <button class="plx-reset" data-settings title="${tr("seed and queue settings")}">⚙</button>
+            <button class="plx-reset" data-settings title="${tr("settings: seed, view, language")}">⚙</button>
             <button class="plx-reset" data-inspire title="${tr("re-roll every creative section -- the persona and your own words stay")}">🎲</button>
             <button class="plx-reset" data-undo title="${tr("undo the last pick")}">↶</button>
             <button class="plx-reset" data-redo title="${tr("redo")}">↷</button>
-            <button class="plx-reset plx-reset-all" data-resetall title="${tr("clear every pick")}">↺ ${tr("RESET ALL")}</button>
-            <button class="plx-btn ${LANG === "ru" ? "act" : ""}" data-lang title="EN / RU — язык интерфейса">${LANG === "ru" ? "RU" : "EN"}</button>`;
+            <button class="plx-reset plx-reset-all" data-resetall title="${tr("clear every pick")}">↺ ${tr("RESET ALL")}</button>`;
         header.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
             const w = node.widgets.find(w => w.name === "mode");
             if (w) w.value = b.dataset.mode;
@@ -1707,12 +1710,6 @@ function buildPanel(node) {
             if (w) w.value = Math.max(1, +varIn.value || 1);
         };
         header.querySelector("[data-shoot]").onclick = () => startShoot();
-        const langBtn = header.querySelector("[data-lang]");
-        if (langBtn) langBtn.onclick = () => {
-            LANG = LANG === "ru" ? "en" : "ru";
-            localStorage.setItem("perfectlab_lang", LANG);
-            renderAll();
-        };
         const sbox = header.querySelector("[data-search]");
         if (sbox) {
             sbox.oninput = () => renderSearch(sbox.value);
@@ -1722,22 +1719,7 @@ function buildPanel(node) {
         header.querySelector("[data-settings]").onclick = () => {
             const opening = seedOverlay.style.display === "none";
             closePopups(seedOverlay);
-            if (opening) { renderSeedBox(); seedOverlay.style.display = ""; }
-        };
-        header.querySelector("[data-uiscale]").onclick = () => {
-            const order = [1, 1.15, 1.3];
-            uiScale = order[(order.indexOf(uiScale) + 1) % order.length];
-            localStorage.setItem("plx_uiscale", String(uiScale));
-            renderHeader();
-            syncSize();
-        };
-        header.querySelector("[data-tiles]").onclick = () => {
-            const order = ["M", "L", "XL", "S"];
-            tileSize = order[(order.indexOf(tileSize) + 1) % order.length];
-            localStorage.setItem("plx_tiles", tileSize);
-            applyTiles();
-            renderHeader();
-            syncSize();
+            if (opening) { renderSettingsBox(); seedOverlay.style.display = ""; }
         };
         header.querySelector("[data-inspire]").onclick = () => inspire();
         header.querySelector("[data-undo]").onclick = () => undo();
@@ -2398,17 +2380,7 @@ function buildPanel(node) {
             <div class="plx-sub">${tr("LIVE TEXT")} <span class="plx-dim ${(budgetOf(state) && tokens > budgetOf(state)) ? "over" : ""}">${tr("estimate")} · ${budgetOf(state) ? `${tokens}/${budgetOf(state)}` : tokens} ${tr("tok")}${budgetOf(state) && tokens > budgetOf(state) ? ` -- ${tr("over the token budget, trim picks or the guard drops slots")}` : ""}</span></div>
             <div class="plx-live">${text
                 ? esc(text)
-                : `<span class="plx-dim">${tr("empty -- nothing is picked and nothing is typed yet; the engine composes from your first pick")}</span>`}</div>
-            <div class="plx-sub">${tr("SESSION PLAN")}</div>
-            <div class="plx-session">
-                ${tr("One START SHOOT renders")} <b>${state.session.count * state.session.takes}</b> ${plural(state.session.count * state.session.takes, "frame")}
-                (<b>${state.session.count}</b> ${plural(state.session.count, "shot")} × <b>${state.session.takes}</b> ${plural(state.session.takes, "take")}).<br>
-                ${(state.look.looks || []).length > 1 ? `${(state.look.looks || []).length} ${plural((state.look.looks || []).length, "look")} ${tr("rotate")} ${esc(tr(state.session.look_rotation))}.` : tr("One look for the whole session.")}<br>
-                ${state.expression.arc ? tr("On the ~arc~ arc~tail~.").replace("~arc~", `<b>${esc(disp(state.expression.arc))}</b>`).replace("~tail~", state.session.takes_arc ? ` -- ${tr("takes ride the curve")}` : "") : ""}
-            </div>
-            ${state.expression.arc && state.session.count > 1 ? `<div class="plx-sub">${tr("the arc's expression route")}</div>
-            <div class="plx-chips tight">${arcSeq(state.expression.arc, state.session.count).map((e, i) => `
-                <span class="plx-route"><b>${i + 1}</b> ${esc(disp(e))}</span>`).join("")}</div>` : ""}`;
+                : `<span class="plx-dim">${tr("empty -- nothing is picked and nothing is typed yet; the engine composes from your first pick")}</span>`}</div>`;
         // the linter badge: amber when issues exist, its title carries the list
         const lintBtn = header.querySelector("[data-lint]");
         if (lintBtn) {
@@ -2690,11 +2662,12 @@ function buildPanel(node) {
         for (const p of [searchOverlay, lintOverlay, seedOverlay])
             if (p !== keep) p.style.display = "none";
     };
-    function renderSeedBox() {
+    function renderSettingsBox() {
         const seedW = node.widgets.find(w => w.name === "seed");
         const cagW = node.widgets.find(w => w.name === "control_after_generate");
         const cur = String((cagW && cagW.value) || "randomize");
         seedOverlay.innerHTML = `
+            <div class="plx-sb-group">${tr("seed")}</div>
             <div class="plx-sb-row"><span class="plx-sb-l">${tr("seed")}</span>
                 <input class="plx-inp" type="number" min="0" data-seedval value="${+(seedW && seedW.value) || 0}">
                 <button class="plx-btn" data-randseed title="${tr("random seed now")}">🎲</button></div>
@@ -2705,6 +2678,17 @@ function buildPanel(node) {
                        ["randomize", tr("random after every shot")]]
                         .map(([v, l]) => `<option value="${v}" ${cur === v ? "selected" : ""}>${l}</option>`).join("")}
                 </select></div>
+            <div class="plx-sb-group">${tr("view")}</div>
+            <div class="plx-sb-row"><span class="plx-sb-l">${tr("preview tile size")}</span>
+                <div class="plx-seg">${["S", "M", "L", "XL"].map(t =>
+                    `<button class="plx-seg-b ${tileSize === t ? "act" : ""}" data-tileset="${t}">${t}</button>`).join("")}</div></div>
+            <div class="plx-sb-row"><span class="plx-sb-l">${tr("interface scale")}</span>
+                <div class="plx-seg">${[100, 115, 130].map(p =>
+                    `<button class="plx-seg-b ${Math.round(uiScale * 100) === p ? "act" : ""}" data-scaleset="${p}">${p}%</button>`).join("")}</div></div>
+            <div class="plx-sb-group">${tr("interface")}</div>
+            <div class="plx-sb-row"><span class="plx-sb-l">${tr("language")}</span>
+                <div class="plx-seg">${[["en", "EN"], ["ru", "RU"]].map(([v, l]) =>
+                    `<button class="plx-seg-b ${LANG === v ? "act" : ""}" data-langset="${v}">${l}</button>`).join("")}</div></div>
             <div class="plx-sb-hint">${tr("the seed rides the hidden widget into the queue; the mode is ComfyUI's own control_after_generate")}</div>`;
         seedOverlay.querySelector("[data-seedval]").onchange = (e) => {
             if (seedW) seedW.value = Math.max(0, Math.floor(+e.target.value || 0));
@@ -2718,6 +2702,24 @@ function buildPanel(node) {
         seedOverlay.querySelector("[data-seedmode]").onchange = (e) => {
             if (cagW) cagW.value = e.target.value;
         };
+        seedOverlay.querySelectorAll("[data-tileset]").forEach(b => b.onclick = () => {
+            tileSize = b.dataset.tileset;
+            localStorage.setItem("plx_tiles", tileSize);
+            applyTiles();
+            renderSettingsBox();
+        });
+        seedOverlay.querySelectorAll("[data-scaleset]").forEach(b => b.onclick = () => {
+            uiScale = (+b.dataset.scaleset) / 100;
+            localStorage.setItem("plx_uiscale", String(uiScale));
+            syncSize();
+            renderSettingsBox();
+        });
+        seedOverlay.querySelectorAll("[data-langset]").forEach(b => b.onclick = () => {
+            LANG = b.dataset.langset;
+            localStorage.setItem("perfectlab_lang", LANG);
+            renderAll();          // the chrome re-renders in the new language
+            renderSettingsBox();  // and this popup's own labels follow
+        });
     }
     document.addEventListener("mousedown", (e) => {
         if (!lintOverlay.contains(e.target)) lintOverlay.style.display = "none";

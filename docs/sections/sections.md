@@ -313,18 +313,20 @@ panel. Your files live in the profile folder (`perfectlab_wildcards/`),
 survive node updates, and win over the bundled starters with the same
 name.
 
-The **▦ tile-size button** in the header cycles the preview tile size
-(M / L / XL / S): fewer tiles per row at the larger steps, the choice is
-remembered per browser. The **% button** next to it cycles the interface
-scale (100 / 115 / 130%): the text and every em-sized control grow with
-it. The node itself stretches too: drag its bottom-right corner and the
-whole panel follows, fitting more of the library on screen, with a
-comfortable minimum it never collapses below.
+The view group of the **⚙ settings popup** carries the preview tile
+size (S / M / L / XL: fewer tiles per row at the larger steps) and the
+interface scale (100 / 115 / 130%: the text and every em-sized control
+grow with it), both remembered per browser. The node itself stretches
+too: drag its bottom-right corner and the whole panel follows, fitting
+more of the library on screen, with a comfortable minimum it never
+collapses below.
 
-The **⚙ seed settings button** in the header opens a small panel with
-the seed value, a 🎲 roll for a fresh one, and how the seed advances
-between shoots (fixed, +1, or random). It writes the same seed widget
-ComfyUI queues, and LIVE TEXT re-rolls its wildcards with it.
+The **⚙ settings button** in the header opens the settings popup in
+three groups. **SEED**: the value, a 🎲 roll, and how the seed advances
+between shoots (fixed, +1, or random) -- the same seed widget ComfyUI
+queues, and LIVE TEXT re-rolls its wildcards with it. **VIEW**: the
+preview tile size (S / M / L / XL) and the interface scale
+(100 / 115 / 130%). **INTERFACE**: the language switch (EN / RU).
 
 The **linter badge** in the header lights up when the composed prompt has
 problems: token overflow against the model profile's budget, an own line

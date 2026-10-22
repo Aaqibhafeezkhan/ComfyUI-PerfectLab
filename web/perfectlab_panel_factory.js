@@ -1,6 +1,6 @@
 // Shared panel kit: favourites, multi-select, presets, uniform tiles and
 // height fitting -- one implementation used by every PerfectLab sub-node.
-import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.12";
+import { RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.14";
 
 // mirrors the panel: the caption translates, the value stays English
 const RU_KIT = {
