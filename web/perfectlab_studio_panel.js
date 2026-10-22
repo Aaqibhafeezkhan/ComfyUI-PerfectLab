@@ -1306,11 +1306,13 @@ const lookHeadwearSub = lookSlotSub("headwear", HEADWEAR_LIB, "headwear", "HEADW
 const lookHeadwearColored = lookSlotWithColors(lookHeadwearSub, "headwear", HEADWEAR_COLORS,
     ["knit", "wool", "cotton", "leather", "silk", "straw", "denim", "felt", "corduroy", "velvet", "tweed"],
     "headwear_material", "headwear_color");
-// lingerie: its own slot -- the set is the whole outfit when nothing covers it
+// lingerie: its own slot -- the set is the whole outfit when nothing covers it.
+// The set colors are the fabric colors: the swatch photos reuse the look_color
+// wall (the same 17 fabrics), no separate lingerie_color category exists
 const lookLingerieSub = lookSlotSub("lingerie", LINGERIE_LIB, "lingerie", "LINGERIE");
 const lookLingerieColored = lookSlotWithColors(lookLingerieSub, "lingerie", LOOK_COLORS,
     ["silk", "satin", "lace", "velvet", "mesh", "cotton", "knit"],
-    "lingerie_material", "lingerie_color");
+    "lingerie_material", "look_color");
 // accessories: the pick grid plus one color swatch row for the whole set
 const lookAccColoredSub = (s) => {
     const base = lookAccSub(s);

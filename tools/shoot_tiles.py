@@ -95,6 +95,11 @@ def state_for(cat, value):
                     "photorealistic, plain warm backdrop",
                     jw, framing="portrait shot", focus="the jewelry",
                     extra=lambda s: s["look"].__setitem__("looks", [{"name": "tile", "accessories": [value]}]))
+    if cat == "acc_color":
+        # the accessory metal and enamel colors: a macro swatch of the finish
+        return base(f"A macro photograph of a {value} metal surface, an abstract color and "
+                    "texture swatch filling the frame, photorealistic, soft studio light",
+                    empty_person, framing="extreme close-up", focus="the fabric texture", fmt="1:1")
     if cat == "hairstyle":
         return base(f"A clean beauty portrait showing {value} on a young woman, "
                     "photorealistic, plain warm backdrop, hair the star of the frame",
@@ -186,6 +191,10 @@ CATS = {
     "framing": FRAMINGS, "focus": FOCUS, "lens": LENS_LIB,
     "props": PROPS_LIB,
     "lingerie": LINGERIE,
+    # the accessory metal and enamel swatches: 12 colors, only 8 frames shipped
+    "acc_color": ["gold", "silver", "black", "rose gold", "pearl white", "gunmetal",
+                  "bronze", "enamel red", "pastel pink", "mustard yellow",
+                  "burgundy", "olive green"],
 }
 
 # chips shown as plain text or CSS boxes -- no tiles to shoot

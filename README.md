@@ -135,11 +135,13 @@ From a neon-lit arcade to a minimalist marble studio, from a rooftop pool to a r
 
 12 conditions, each an empty landscape, plus in-air effects that work indoors too: falling petals, floating bubbles.
 
+<p align="center"><img src="docs/sections/weather_pick.png" alt="Weather card" width="720"></p>
+
 ### Props
 
 39 scene props in four blocks: portable (a vintage bicycle, a motorcycle, balloons, a bouquet, a film camera, a polaroid, a vinyl record, a skateboard, a suitcase), everyday carry (a takeaway coffee cup, an ice cream cone, a slice of pizza, a disposable camera, dried flowers, a rolled magazine, roller skates, shopping bags, a cocktail glass, a hand mirror), living props (a fluffy cat in her arms, a small dog on a leash) and statement furniture (a grand piano, a lit fireplace, a chandelier, a four-poster bed, a coat rack, a wall of framed photos). Multi-select: they ride the scene line as *with a bouquet and a vinyl record*.
 
-<p align="center"><img src="docs/sections/weather_pick.png" alt="Weather card" width="720"></p>
+<p align="center"><img src="docs/sections/props_pick.png" alt="The props grid in the location card" width="760"></p>
 
 ## 🎞 Style
 
