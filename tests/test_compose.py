@@ -138,23 +138,29 @@ def test_full_panel_reset_state_composes_nothing():
     }
     prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
     assert prompts == [""] * 6
-    # one real pick switches the full machinery back on
+    # one real pick composes exactly that pick -- no stock words ride along
     state["scene"]["location"] = "a rooftop cafe"
     prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
     assert "rooftop cafe" in prompts[0]
-    # a pinned format is a pick too; the pin-0 default is not
+    assert "centered in frame" not in prompts[0], "placement is never auto-injected"
+    assert "editorial photography" not in prompts[0], "no stock quality tail"
+    # a pinned format opens no words of its own: with nothing else picked
+    # the composed prompt stays empty -- a ratio is not a sentence
     state["scene"]["location"] = ""
     state["camera"]["formats"] = {"mode": "pin", "set": [], "pin": 3}
     prompts, *_ = perfectlab_studio._run_session(state, 6, 0, -1)
-    assert prompts[0].strip()
+    assert prompts[0].strip() == ""
 
 
-def test_one_pick_restores_the_full_machinery():
+def test_one_pick_composes_the_pick_only():
+    """the prompt carries the user's choices: one pick composes one line,
+    no walk the user never asked for, no stock tail"""
     config = {"_v": 2, "shot": {}, "session": {},
               "scene": {"location": "a rooftop cafe"}}
     prompts, *_ = perfectlab_studio._run_session(config, 1, 0, -1)
     assert "rooftop cafe" in prompts[0]
-    assert "editorial photography" in prompts[0]
+    assert "centered in frame" not in prompts[0], "placement is never auto-injected"
+    assert "editorial photography" not in prompts[0], "no stock quality tail"
 
 
 def test_hole_seams_dissolve():
@@ -167,9 +173,8 @@ def test_hole_seams_dissolve():
     assert "the setting is a rooftop cafe" in p
     for seam in (". ,", ", .", "  ", "..", ",,", "wearing"):
         assert seam not in p, f"seam {seam!r} survived: {p!r}"
-    # only the scene picked: the slot writers' phrasing rides verbatim
-    assert p == ("the setting is a rooftop cafe. centered in frame. "
-                 "editorial photography, natural light.")
+    # picks only: the scene, no auto placement, no stock quality tail
+    assert p == "the setting is a rooftop cafe."
 
 
 def test_clock_hour_reads_the_assistant_phrases():

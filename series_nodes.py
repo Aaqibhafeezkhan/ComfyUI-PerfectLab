@@ -853,9 +853,10 @@ class PerfectLabSeries:
                     ratio = fmt
             w, h = _ratio_size(ratio)
 
-            # placements that fight the crop are filtered, not composed; the
-            # arc's energy moves them first, but the crop's law still wins
-            placement = PLACEMENTS[i % len(PLACEMENTS)]
+            # placement is no longer auto-injected: the prompt carries what
+            # the user picked, and the panel offers no placement picks. The
+            # arc coupling and the near-clamp stay for the day it does
+            placement = ""
             if lvl is not None and place_arc:
                 placement, place_swap = _placement_for_level(placement, lvl, i, tier == "close")
                 if place_swap:

@@ -290,7 +290,10 @@ def _walk_order(n, salt):
 
 def walk_list(items, sel, count, seed, salt):
     """one entry per shot. sel is the panel state: {mode: all|multi|pin,
-    set: [idx], pin: idx} -- walk everything, a chosen subset, or one pin."""
+    set: [idx], pin: idx} -- a pin holds, a chosen set rotates. Mode 'all'
+    means the user picked nothing here, and nothing picked contributes
+    nothing: the prompt carries the user's choices, never a walk the user
+    did not ask for."""
     items = [i for i in items if isinstance(i, str) and i.strip()] or [""]
     n = len(items)
     if isinstance(sel, (int, float)):
@@ -304,8 +307,7 @@ def walk_list(items, sel, count, seed, salt):
         set_ = [int(x) % n for x in sel["set"] if isinstance(x, (int, float))]
         if set_:
             return [items[set_[i % len(set_)]] for i in range(count)]
-    order = _walk_order(n, salt)
-    return [items[order[i % n]] for i in range(count)]
+    return []
 
 
 def _sel(state, key):

@@ -141,8 +141,9 @@ def _run_session(config, count, seed, shot_pick):
     shot = config.get("shot") if isinstance(config.get("shot"), dict) else {}
     single = count == 1 and not session.get("count")
     template = (shot.get("template") or session.get("template") or DEFAULT_TEMPLATE).strip()
-    quality = (shot.get("quality_line") or session.get("quality_line")
-               or "editorial photography, natural light").strip()
+    # the quality tail rides only when the user sets it; the shipped
+    # panel has no field for it, so a fresh session carries no stock words
+    quality = (shot.get("quality_line") or session.get("quality_line") or "").strip()
     slots = compose_slots(config, count, seed)
     main = (shot.get("main_prompt") or "").strip()
     custom = (shot.get("custom") or "").strip()

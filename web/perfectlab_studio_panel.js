@@ -11,28 +11,28 @@ import { app } from "../../scripts/app.js";
 import { chipGrid, tile, itemImg, toggleFav, attachPresets,
          libAdd, libImgPut, libChips, wireLib, libSync, plRead, plWrite, plDrop,
          PL_VERSION }
-    from "./perfectlab_panel_factory.js?v=1.1.17";
+    from "./perfectlab_panel_factory.js?v=1.1.18";
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB,
          arcList, arcNote, isUserArc, framingText, resolveChoices, resolveWildcards,
          setUserArcs, setUserToneSwaps, setUserEnergy,
          TEMPLATE_KEYS, DEFAULT_TEMPLATE, subjectWeave, focusForShot,
          PLACEMENT_LIB, TIERS, MACRO_SHOES, clockLight, composeLook, walkList,
-         NEAR_PLACEMENTS, arcLevels, poseForLevel, framingForLevel, focusForLevel,
-         placementForLevel, toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
+         arcLevels, poseForLevel, framingForLevel, focusForLevel,
+         toneLight, TONE_QUIET_BAND, TONE_BOLD_BAND,
          arcSeq, FACE_FOCUS, TIER_FORMATS }
-    from "./perfectlab_lib.js?v=1.1.17";
+    from "./perfectlab_lib.js?v=1.1.18";
 import { PERSONA_FIELDS, TOPS_LIB, BOTTOMS_LIB, FOOTWEAR_LIB, HEADWEAR_LIB,
          ACCESSORIES_LIB, LOOK_COLORS, FOOTWEAR_COLORS, HEADWEAR_COLORS,
          ACC_COLORS, FOOTWEAR_MATERIALS, MATERIALS, MAT_EXTRA, MATERIAL_TINT,
          LIGHT_SETUPS, STYLES, FILMS, LOCATIONS, WEATHER,
          PROPS_LIB, COMPOSITION_LIB, LENS_LIB, LINGERIE_LIB, NEG_PRESETS,
-         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.17";
+         COMBO_LOOKS, RU_DISPLAY } from "./perfectlab_libraries.js?v=1.1.18";
 
 // the kit's stylesheet rides along with this module
 {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.17";
+    link.href = new URL("styles.css", import.meta.url).href + "?v=1.1.18";
     document.head.append(link);
 }
 
@@ -738,7 +738,9 @@ const liveText = (s, seed = 0) => {
     if (!camOff) {
         framingsWalked = (s.camera.framing_order === "wide-to-close"
                     && (framingSel.mode || "all") === "all" && !(framingSel.set || []).length)
-            // the dramaturgy walks a reversed plain range, widest first
+            // the dramaturgy checkbox is a deliberate ask: it walks the
+            // whole library in reverse, widest first -- unlike a plain
+            // unpicked walk, which now contributes nothing
             ? [...Array(sesCount)].map((_, i2) =>
                 FRAMING_LIB[FRAMING_LIB.length - 1 - (i2 % FRAMING_LIB.length)])
             : walkList(FRAMING_LIB, framingSel, sesCount, seed, 0);
@@ -869,11 +871,9 @@ const liveText = (s, seed = 0) => {
     let focusRaw = firstOf(focus) || "";
     if (lvl != null && s.session.focus_arc && focusWalked.length)
         focusRaw = focusForLevel(focusWalked, focusRaw, lvl, 0, tier, poseV);
-    let placementV = PLACEMENT_LIB[0] || "";
-    if (lvl != null && s.session.place_arc)
-        placementV = placementForLevel(placementV, lvl, 0, tier === "close");
-    if (tier === "close" && !NEAR_PLACEMENTS.includes(placementV))
-        placementV = "close to the camera";
+    // placement is no longer auto-injected: the prompt carries the user's
+    // picks, and the panel offers no placement picks (mirrors the engine)
+    let placementV = "";
     // the engine never back-fills an unpicked focus (_focus_for_shot keeps
     // it empty) -- the reset preview must not invent "the face" either.
     // A shoe focus on a close crop turns the framing into the floor-level
@@ -915,7 +915,7 @@ const liveText = (s, seed = 0) => {
         placement: placementV,
         expression: exprSlot, lighting: lightV,
         outfit: outfitSlot,
-        quality: "editorial photography, natural light" };
+        quality: "" };
     const tmpl = (s.session.template || "").trim() || DEFAULT_TEMPLATE;
     let filled = tmpl;
     for (const k of TEMPLATE_KEYS) filled = filled.split("{" + k + "}").join(slotVals[k] || "");

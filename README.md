@@ -11,7 +11,7 @@ PerfectLab Studio builds AI photoshoots inside one ComfyUI node. Pick the person
 
 ## 🎯 Why PerfectLab Studio
 
-- **A whole shoot in one click.** Set the number of shots and takes, press START SHOOT, and every frame gets its own crop, pose, expression, seed and metadata line. The session walks your picks in order.
+- **A whole shoot in one click.** Set the number of shots and takes, press START SHOOT. The session walks the crops, poses and expressions you picked, one per frame, each with its own seed and metadata line. The prompt carries exactly what you chose: nothing rides in uninvited.
 - **You pick what you see.** Every library entry carries a photo tile: 553 previews rendered through a real graph, the same face and the same light across the whole set.
 - **The person stays the same.** The persona block and per-shot seeds keep the description stable, and a fixed-seed option pins one noise to the whole session for clean A/B. For the same *face* across shoots, use a character LoRA: type its trigger word into the trigger line and every prompt starts with it. Prompts alone give you the same description; a LoRA gives you the same person.
 - **Prompts that fit the model.** Natural language for Flux, Z-Image and Qwen-Image, comma tags for SDXL. The built-in linter watches the token budget, duplicates, unbalanced braces and missing wildcard files.

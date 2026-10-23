@@ -9,7 +9,7 @@
 // Python engine sources); this file re-exports them and keeps the logic
 // tables that mirror series_nodes.py.
 import { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB }
-    from "./perfectlab_libraries.js?v=1.1.17";
+    from "./perfectlab_libraries.js?v=1.1.18";
 export { POSE_LIB, EXPRESSION_LIB, FRAMING_LIB, FOCUS_LIB, FORMAT_LIB };
 
 export const ARC_LIB = {
@@ -152,9 +152,9 @@ export const walkOrder = (n, salt) => {
     }
     return idx;
 };
-// walk_list mirrored: a pin holds, a picked set rotates, everything
-// else (mode "all", or a multi with an empty set) walks the whole
-// library in the shared order -- one entry per shot, shot 1 first
+// walk_list mirrored: a pin holds, a picked set rotates, and mode
+// "all" (or a multi with an empty set) contributes nothing -- one entry
+// per shot for what the user actually picked, shot 1 first
 export const walkList = (items, sel, count, seed, salt) => {
     const clean = (items || []).filter(i => typeof i === "string" && i.trim());
     const arr = clean.length ? clean : [""];
@@ -169,8 +169,9 @@ export const walkList = (items, sel, count, seed, salt) => {
         const set_ = sel.set.map(x => (((+x % n) + n) % n));
         return [...Array(count)].map((_, i) => arr[set_[i % set_.length]]);
     }
-    const order = walkOrder(n, salt);
-    return [...Array(count)].map((_, i) => arr[order[i % n]]);
+    // mode "all" or an empty multi: the user picked nothing here, and
+    // nothing picked contributes nothing (mirrors walk_list)
+    return [];
 };
 // __filename__ tokens resolve to a line of web/wildcards/filename.txt --
 // the same FNV pick the engine runs, so the preview carries what the shot
