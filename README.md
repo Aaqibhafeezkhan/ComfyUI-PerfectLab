@@ -339,6 +339,8 @@ The language switch lives in the **⚙ settings popup** (EN / RU); the choice is
 
 No Python dependencies. Works with any text-to-image model: SDXL, Flux, Z-Image, Qwen-Image and others.
 
+Works fully offline: every tile preview and both panel fonts ship inside the package. No CDN calls, no VPN needed.
+
 ## 🔧 Troubleshooting
 
 | Problem | Fix |
@@ -346,6 +348,8 @@ No Python dependencies. Works with any text-to-image model: SDXL, Flux, Z-Image,
 | The panel did not appear after install or update | Hard refresh the browser (Ctrl+F5). |
 | The node is missing from the menu | Restart ComfyUI. |
 | Preview tiles do not load | Check that `web/guide/items/` exists in the node folder. |
+| Tiles show as letters instead of photos | Update to 1.0.3 or later and hard refresh (Ctrl+F5). The tile URLs resolve from the module location, so any install folder name works. |
+| The panel fonts look different on another machine | Since 1.1.19 the fonts are local, see `web/fonts/`. On older versions they came from Google Fonts and could be blocked offline. |
 | The prompt comes out empty | Pick at least one thing in PERSONA or LOOK. |
 | Wrong text mode for your model | Switch NATURAL / TAGS in the right column. |
 | Custom entries do not survive a reload | PerfectLab ships its own write endpoint as a fallback. |
