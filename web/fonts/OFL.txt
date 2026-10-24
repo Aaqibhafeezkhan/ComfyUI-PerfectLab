@@ -1,0 +1,7 @@
+SIL Open Font License 1.1
+
+Copyright (c) 2016, Matt McInerney (matt@sketched.com), with Reserved Font Name "Orbitron".
+Copyright (c) 2011, Google (rob@thetype.com), with Reserved Font Name "Roboto".
+
+These fonts are licensed under the SIL Open Font License, Version 1.1.
+The license text: https://openfontlicense.org/open-font-license-official-text/
